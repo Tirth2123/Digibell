@@ -184,7 +184,12 @@ class _SingUpScreenState extends State<SingUpScreen> {
                                     ),
                                     dialogBackgroundColor: Colors.white,
                                   ),
-                                  child: child ?? Container(),
+                                  child: MediaQuery(
+                                    data: MediaQuery.of(context).copyWith(
+                                      textScaler: const TextScaler.linear(1.0),
+                                    ),
+                                    child: child ?? const SizedBox(),
+                                  ),
                                 ),
                                 context: context,
                                 initialDate: currentDate,

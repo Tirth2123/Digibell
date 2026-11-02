@@ -729,7 +729,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver{
           return MaterialApp(
               builder: (context, child) {
                 final mediaQueryData = MediaQuery.of(context);
-                final scale = mediaQueryData.textScaler.clamp(minScaleFactor: 1.0, maxScaleFactor: 1.14);
+                final scale = mediaQueryData.textScaler.clamp(minScaleFactor: 0.8, maxScaleFactor: 1.14);
                 return MediaQuery(
                   data: MediaQuery.of(context).copyWith(textScaler: scale),
                   child: child!,
