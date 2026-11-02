@@ -56,3 +56,6 @@ app.*.map.json
 /android/.kotlin/
 /android/build/
 /android/libs/
+
+# iOS CocoaPods lockfile
+ios/Podfile.lock
