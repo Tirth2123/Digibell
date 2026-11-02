@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "578830986701",
+    "project_id": "digibells-11f6c",
+    "storage_bucket": "digibells-11f6c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:578830986701:android:cd85376514eb13a2da2884",
+        "android_client_info": {
+          "package_name": "com.app.digibell"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "578830986701-ehjvsmjab2necvsj7vjg8rcvqcklq9q1.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBqsYxHGkfzR1yJ4XsnksVyjh3huYt9wok"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "578830986701-ehjvsmjab2necvsj7vjg8rcvqcklq9q1.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

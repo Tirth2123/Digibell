@@ -1,0 +1,32 @@
+class AppScreens {
+  AppScreens._();
+  static const String splashscreen = '/splash';
+  static const String loginScreen = '/login';
+  static const String singUpScreen = '/singUP';
+  static const String firstTimeHomeScreen = '/firstTimeHome';
+  static const String addQrCodeDetails = '/addQrCodeDetails';
+  static const String homeScreen = '/homeScreen';
+  static const String viewQRCodeScreen = '/viewQRCodeScreen';
+  static const String addMemberScreen = '/addMemberScreen';
+  static const String stickerOrderHistoryScreen = '/stickerOrderHistoryScreen';
+  static const String newAddMemberScreen = '/newAddMemberScreen';
+  static const String callHistoryScreen = '/callHistoryScreen';
+  static const String profileScreen = '/profileScreen';
+  static const String productDetailsScreen = '/productDetailsScreen';
+  static const String shoppingCartScreen = '/shoppingCartScreen';
+  static const String subscriptionScreen = '/subscriptionScreen';
+  static const String orderHistoryScreen = '/orderHistoryScreen';
+  static const String voucherScreen = '/voucherScreen';
+  static const String notificationScreen = '/notificationScreen';
+  static const String addAddressesScreen = '/addAddressesScreen';
+  static const String favouriteMemberScreen = '/favouriteMemberScreen';
+  static const String activateQRCodeScreen = '/activateQRCodeScreen';
+  // static const String upgradeSubscriptionPlanScreen = '/upgradeSubscriptionPlanScreen';
+  static const String verificationCodeScreen = '/verificationCodeScreen';
+  static const String savedAddress = '/savedAddress';
+  static const String settingScreen = '/settingScreen';
+  static const String videoCallScreen = '/videoCallScreen';
+  static const String audioCallScreen = '/audioCallScreen';
+  static const String ringingScreen = '/ringingScreen';
+  static const String helpAndFaqs = '/helpAndFaqs';
+}

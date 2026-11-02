@@ -1,0 +1,56 @@
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+subprojects {
+    afterEvaluate { project ->
+        if (project.hasProperty("android")) {
+            project.android {
+                if (namespace == null) {
+                    try {
+                        def manifestFile = project.file("src/main/AndroidManifest.xml")
+                        if (manifestFile.exists()) {
+                            def manifest = new groovy.xml.XmlSlurper().parse(manifestFile)
+                            def pkg = manifest.@package.text()
+                            if (pkg) {
+                                namespace = pkg
+                            }
+                        }
+                    } catch (Exception ignored) {
+                    }
+                    if (namespace == null) {
+                        namespace = project.group ? project.group.toString() : "com.app.${project.name}"
+                    }
+                }
+                compileSdkVersion 36
+                compileOptions {
+                    sourceCompatibility JavaVersion.VERSION_17
+                    targetCompatibility JavaVersion.VERSION_17
+                }
+            }
+            project.dependencies {
+                compileOnly files("${rootDir}/libs/flutter-shim.jar")
+            }
+        }
+        tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+            kotlinOptions {
+                jvmTarget = "17"
+            }
+        }
+    }
+}
+
+rootProject.buildDir = '../build'
+subprojects {
+    project.buildDir = "${rootProject.buildDir}/${project.name}"
+}
+subprojects {
+    project.evaluationDependsOn(':app')
+}
+
+tasks.register("clean", Delete) {
+    delete rootProject.buildDir
+}
