@@ -2,10 +2,13 @@ class APIConstants {
   // static const baseUrl = 'http://52.66.209.70:3050/api/';
   static const imageUrl = 'https://digibells-assets.s3.ap-south-1.amazonaws.com/';
 
-  // Local Development URLs (Port 7500)
-  // For Physical Device & Local Testing (same Wi-Fi):
-  static const baseUrl = 'http://10.16.166.159:7500/api';
-  static const socket = 'http://10.16.166.159:7500';
+  // Ngrok Public Tunnel URLs (Usable from ANY device on ANY Wi-Fi or Mobile Data):
+  static const baseUrl = 'https://marilyn-ungauged-venus.ngrok-free.dev/api';
+  static const socket = 'https://marilyn-ungauged-venus.ngrok-free.dev';
+
+  // Local Development URLs (Port 7500):
+  // static const baseUrl = 'http://10.16.166.159:7500/api';
+  // static const socket = 'http://10.16.166.159:7500';
 
   // For Android Emulator (uncomment if using emulator):
   // static const baseUrl = 'http://10.0.2.2:7500/api';
