@@ -17,14 +17,15 @@ class AddQRDetailsRepositoryImpl extends AddQRDetailsRepository {
           data: data);
       final newResponse = AddQRDetailsModel.fromJson(response.data);
       return ApiResponse.success(data: newResponse);
-    } on DioError catch (error) {
+    } on DioException catch (error) {
       print('MYERRORR $error');
-      //return ApiResponse.error(error: ApiUtils.getApiError(error));
       final response = error.response;
-
-      print('RESPONSE_ERRRORR ${error.response}');
-      print('RESPONSE_ERRRORR ${response!.data['message']}');
-      return ApiResponse.error(errorMsg: response.data['message']);
+      print('RESPONSE_ERRRORR $response');
+      String? msg;
+      if (response != null && response.data != null && response.data is Map) {
+        msg = response.data['message']?.toString();
+      }
+      return ApiResponse.error(errorMsg: msg ?? error.message ?? 'Network error occurred');
     }
   }
 }

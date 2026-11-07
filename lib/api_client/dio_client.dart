@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:dio/dio.dart';
+import 'package:dio/io.dart';
 import 'package:logger/logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -19,11 +21,21 @@ class DioClient {
       baseUrl: baseUrl,
       headers: {
           "Accept": "application/json",
-          "content-type": "application/json"
+          "content-type": "application/json",
+          "ngrok-skip-browser-warning": "true",
         }
     );
 
     _dio = Dio(options);
+
+    _dio.httpClientAdapter = IOHttpClientAdapter(
+      createHttpClient: () {
+        final client = HttpClient();
+        client.badCertificateCallback = (X509Certificate cert, String host, int port) => true;
+        return client;
+      },
+    );
+
     _dio.interceptors.add(AuthorizationInterceptor());
     _dio.interceptors.add(LoggingInterceptor());
   }

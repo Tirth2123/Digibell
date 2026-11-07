@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 // ignore: unused_import
 import 'package:Digibells/firebase_notification/call_notification.dart';
 import 'package:Digibells/firebase_notification/notification_service.dart';
@@ -83,8 +84,17 @@ SharedPreferences? prefs;
 List<ConnectivityResult> connectionStatus = [ConnectivityResult.none];
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
+class MyHttpOverrides extends HttpOverrides {
+  @override
+  HttpClient createHttpClient(SecurityContext? context) {
+    return super.createHttpClient(context)
+      ..badCertificateCallback = (X509Certificate cert, String host, int port) => true;
+  }
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  HttpOverrides.global = MyHttpOverrides();
   // Initialize SharedPreferences
   prefs = await SharedPreferences.getInstance();
   try {
