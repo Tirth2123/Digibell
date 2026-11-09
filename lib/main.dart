@@ -159,6 +159,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver{
 
         final callId = event.body['id'];
         var extraData = event.body['extra'] ?? {};
+        if (extraData is String) {
+          try {
+            extraData = json.decode(extraData);
+          } catch (_) {}
+        }
 
         // On incoming call, always ensure socket is connected
         if (event.event == Event.actionCallIncoming) {
@@ -169,9 +174,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver{
           return;
         }
 
-        if (extraData.containsKey('data') && extraData['data'] != null) {
+        dynamic rawCallData = extraData['data'] ?? extraData;
+        if (rawCallData != null) {
           try {
-            final decodedData = json.decode(extraData['data']);
+            final decodedData = rawCallData is String ? json.decode(rawCallData) : Map<String, dynamic>.from(rawCallData);
 
             logger.w("Received extra data: ${event.body['extra']}");
             logger.w("Decoded data In Main: $decodedData");
