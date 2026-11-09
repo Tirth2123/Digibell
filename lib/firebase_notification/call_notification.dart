@@ -28,9 +28,10 @@ Future<void> showIncomingCallNotification(Map<String, dynamic> callData) async {
 
     // Prepare call kit parameters
     final callKitParams = CallKitParams(
-
       id: data['callerId'] ?? DateTime.now().millisecondsSinceEpoch.toString(),
-      nameCaller: data['callerName'].isNotEmpty ? data['callerName'] : 'Unknown Caller',
+      nameCaller: (data['callerName'] != null && data['callerName'].toString().isNotEmpty)
+          ? data['callerName']
+          : 'Visitor at Door',
       appName: 'Digibell',
       type: data['type'] == 'audioCall' ? 0 : 1, // 0: audio, 1: video
       duration: 30000, // 30 seconds
@@ -38,9 +39,14 @@ Future<void> showIncomingCallNotification(Map<String, dynamic> callData) async {
       textDecline: 'Decline',
       extra: callData,
       android: AndroidParams(
-        isCustomNotification: true,
+        isCustomNotification: false,
         isShowLogo: false,
-        ringtonePath: 'ringtone', // Ensure ringtone file exists in res/raw
+        isShowFullLockedScreen: true,
+        isImportant: true,
+        ringtonePath: 'ringtone',
+        incomingCallNotificationChannelName: 'Incoming Calls',
+        backgroundColor: '#095D56',
+        actionColor: '#4CAF50',
       ),
       ios: IOSParams(
         iconName: 'AppIcon',

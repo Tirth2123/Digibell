@@ -180,10 +180,21 @@ class PushNotificationService {
 
   Future getDeviceData() async {
     final DeviceInfoPlugin deviceInfoPlugin = DeviceInfoPlugin();
-    String? token = await _fcm.getToken() ?? '';
+    String token = '';
+    try {
+      token = await _fcm.getToken() ?? '';
+    } catch (e) {
+      logger.w('Could not fetch FCM token immediately: $e');
+    }
     String? voipToken;
 
-    PackageInfo packageInfo = await PackageInfo.fromPlatform();
+    PackageInfo? packageInfo;
+    try {
+      packageInfo = await PackageInfo.fromPlatform();
+    } catch (e) {
+      logger.w('PackageInfo error: $e');
+    }
+
     String? osVersion;
     String? deviceCompany;
     String? model;
@@ -201,7 +212,7 @@ class PushNotificationService {
         osVersion = data.systemVersion;
         deviceCompany = 'Apple - ${data.utsname.machine.iOSProductName}';
         model = data.model;
-        deviceId = data.identifierForVendor;
+        deviceId = data.identifierForVendor ?? 'ios-${DateTime.now().millisecondsSinceEpoch}';
 
         try {
           voipToken = await FlutterCallkitIncoming.getDevicePushTokenVoIP();
@@ -210,28 +221,33 @@ class PushNotificationService {
           logger.e('Failed to fetch VoIP PushKit token: $e');
         }
       }
-    } on PlatformException {
-      logger.e('Failed to get platform version');
+    } catch (e) {
+      logger.e('Failed to get platform device info: $e');
     }
+
+    deviceId = deviceId ?? 'device-${DateTime.now().millisecondsSinceEpoch}';
 
     Map<String, dynamic> data = {
       "deviceId": deviceId,
       "fcmToken": token,
       "voipToken": voipToken ?? '',
-      "deviceCompany": deviceCompany,
-      "deviceName": model,
+      "deviceCompany": deviceCompany ?? 'Unknown',
+      "deviceName": model ?? 'Mobile Device',
       "os": Platform.isAndroid ? 'android' : 'ios',
-      "appVersion": packageInfo.version.toString(),
-      "osVersion": osVersion,
+      "appVersion": packageInfo?.version.toString() ?? '1.0.0',
+      "osVersion": osVersion ?? '1.0',
     };
 
     SharedPreferences pref = await SharedPreferences.getInstance();
-    await pref.setString(AppConstants.fcmToken, token);
+    if (token.isNotEmpty) {
+      await pref.setString(AppConstants.fcmToken, token);
+    }
     if (voipToken != null && voipToken.isNotEmpty) {
       await pref.setString(AppConstants.voipToken, voipToken);
     }
-    await pref.setString(AppConstants.deviceId, deviceId!);
+    await pref.setString(AppConstants.deviceId, deviceId);
     String deviceData = jsonEncode(data);
     await pref.setString(AppConstants.deviceData, deviceData);
+  }
   }
 }
