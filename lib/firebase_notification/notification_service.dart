@@ -16,6 +16,37 @@ import '../soketIO/model/incoming_call_model.dart';
 import '../utils/logger.dart';
 
 String callId1 = '';
+
+@pragma('vm:entry-point')
+Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  logger.i("IT'S HERE At BACKGROUND **${message.data['title']}");
+  logger.w("ccc ${message.toMap()}");
+
+  if (message.data['title'] == 'Incoming Voice Call...' || message.data['title'] == 'Incoming Video Call...') {
+    logger.w("REDIRECT FROM background..");
+    final data = json.decode(message.data['data']);
+
+    if (data.containsKey('actionType')) {
+      logger.i("IT'S HERE At BACKGROUND 1414${data['actionType']}");
+      FlutterCallkitIncoming.endCall(callId1);
+      logger.i("IT'S HERE At BACKGROUND 4${data['actionType']}");
+      if (data['actionType'] == 'reject') {
+        FlutterCallkitIncoming.endAllCalls();
+      } else {
+        logger.i("IT'S HERE At BACKGROUND 115 $callId1}");
+        showIncomingCallNotification(message.data);
+      }
+    } else {
+      logger.i("IT'S HERE At BACKGROUND 3${message.data}");
+      showIncomingCallNotification(message.data);
+    }
+  } else {
+    logger.i("IT'S HERE At BACKGROUND 1${message.data['title']}");
+    return null;
+  }
+}
+
+@pragma('vm:entry-point')
 class NotificationService {
   final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
   static bool _listenersInitialized = false; // Make this static to share across instances
@@ -24,8 +55,6 @@ class NotificationService {
     _initializeFirebaseMessaging();
   }
 
-
-
   void _initializeFirebaseMessaging() async {
     if (_listenersInitialized) return;
     // Request permissions for iOS
@@ -33,10 +62,10 @@ class NotificationService {
       alert: true,
       badge: true,
       sound: true,
-     );
+    );
 
-    // Handle background messages
-      FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+    // Handle background messages with top-level entry point
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
     if (settings.authorizationStatus == AuthorizationStatus.authorized) {
       logger.i('User granted permission');
@@ -66,52 +95,6 @@ class NotificationService {
 
 
      _listenersInitialized = true; // Mark as initialized
-
-
-  }
-
-  // Future<void> _checkForInitialMessage() async {
-  //   RemoteMessage? initialMessage = await _firebaseMessaging.getInitialMessage();
-  //   if (initialMessage != null) {
-  //     logger.w("Initial message = ${initialMessage.toMap()}");
-  //
-  //    // _handleMessage(initialMessage);
-  //   }
-  // }
-
-   @pragma('vm:entry-point')
-  static Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-     logger.i("IT'S HERE At BACKGROUND **${message.data['title']}");
-
-    logger.w("ccc ${message.toMap()}");
-    // Process the message in the background
-
-        if (message.data['title'] == 'Incoming Voice Call...' || message.data['title'] == 'Incoming Video Call...') {
-        logger.w("REDIRECT FROM background..");
-        final data = json.decode(message.data['data']);
-        //showIncomingCallNotification(message.data);
-
-        if (data.containsKey('actionType')) {
-          logger.i("IT'S HERE At BACKGROUND 1414${data['actionType']}");
-          FlutterCallkitIncoming.endCall(callId1);
-          logger.i("IT'S HERE At BACKGROUND 4${data['actionType']}");
-          if(data['actionType'] == 'reject'){
-            FlutterCallkitIncoming.endAllCalls();
-            //logger.i("IT'S HERE At BACKGROUND 114 $callId1}");
-            //FlutterCallkitIncoming.endCall(callId1);
-          }else {
-            logger.i("IT'S HERE At BACKGROUND 115 $callId1}");
-            showIncomingCallNotification(message.data);
-          }
-        } else {
-          logger.i("IT'S HERE At BACKGROUND 3${message.data}");
-          showIncomingCallNotification(message.data);
-        }
-
-      } else {
-        logger.i("IT'S HERE At BACKGROUND 1${message.data['title']}");
-        return null;
-      }
   }
 
     Future<String?> getToken() async {
@@ -120,41 +103,20 @@ class NotificationService {
   
   Future<void> handleNotification(dynamic message) async {
 
-    if (message.data['title'] == 'Incoming Voice Call...' || message.data['title'] == 'Incoming Video Call...' ) {
-    logger.w("REDIRECT FROM NOTTTTTTT..");
-    Map<String, dynamic> jsonObject = jsonDecode(message.data['data']);
-    IncomeCallModel callModel = IncomeCallModel.fromJson(jsonObject);
+    if (message.data['title'] == 'Incoming Voice Call...' || message.data['title'] == 'Incoming Video Call...') {
+      logger.w("REDIRECT FROM NOTTTTTTT.. — showing full-screen CallKit UI");
 
-    try {
-      logger.w("FROM NOTI. SERVICE....");
-
-      await navigatorKey.currentState?.pushNamed(
-        AppScreens.ringingScreen,
-        arguments: {
-          'userCount': callModel.userCount,
-          'callId': callModel.callId,
-          'members': callModel.members,
-          'receiverId': callModel.receiverId,
-          'type': callModel.type,
-          'callerName': callModel.callerName,
-          'token': callModel.token,
-          'channelName': callModel.channelName,
-          'callerId': callModel.callerId,
-        },
-      );
-    } on Exception catch (e) {
-      logger.e("ERROR FROM NOT SCREEN ==> $e");
-    }
-  }else{
-      if (message.data['title'] != 'Incoming Voice Call...' || message.data['title'] != 'Incoming Video Call...' ) {
-        // LocalNotificationService().showNotification(
-        //   title: message.notification?.title ?? 'No Title',
-        //   body: message.notification?.body ?? 'No Body',
-        //   payload: jsonEncode(message.data),
-        // );
+      try {
+        // Always show the native full-screen incoming call UI (works for
+        // foreground, background, AND killed states). This triggers the
+        // CallkitIncomingActivity overlay so the user sees Accept/Decline
+        // even when the phone is locked or another app is in front.
+        await showIncomingCallNotification(message.data);
+        logger.w("showIncomingCallNotification called successfully");
+      } on Exception catch (e) {
+        logger.e("ERROR showing CallKit screen ==> $e");
       }
     }
-
   }
 }
 

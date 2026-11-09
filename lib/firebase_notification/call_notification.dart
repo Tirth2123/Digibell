@@ -18,6 +18,7 @@ Timer? _callTimer;
 /// NOTE: CallKit event handling (accept / decline / timeout) is done
 /// by the single global listener in main.dart — NOT here.
 /// This function only displays the call and schedules auto-dismiss.
+@pragma('vm:entry-point')
 Future<void> showIncomingCallNotification(Map<String, dynamic> callData) async {
 
   try {
