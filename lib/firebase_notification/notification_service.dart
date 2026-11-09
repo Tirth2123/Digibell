@@ -249,5 +249,4 @@ class PushNotificationService {
     String deviceData = jsonEncode(data);
     await pref.setString(AppConstants.deviceData, deviceData);
   }
-  }
 }
