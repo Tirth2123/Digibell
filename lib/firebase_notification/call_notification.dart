@@ -9,6 +9,11 @@ import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 import 'package:socket_io_client/socket_io_client.dart';
+import 'package:uuid/uuid.dart';
+
+final RegExp _uuidPattern = RegExp(
+  r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+);
 
 
 Timer? _callTimer;
@@ -27,9 +32,13 @@ Future<void> showIncomingCallNotification(Map<String, dynamic> callData) async {
     logger.w("THIS IS YOUR CALL DATA ==> ${callData}");
     logger.i("IT'S HERE At BACKGROUND 5${data['callId']}");
 
+    // iOS CallKit crashes if id is not a valid RFC-4122 UUID.
+    final rawId = (data['callId'] ?? data['callerId'] ?? '').toString();
+    final callKitId = _uuidPattern.hasMatch(rawId) ? rawId : const Uuid().v4();
+
     // Prepare call kit parameters
     final callKitParams = CallKitParams(
-      id: data['callerId'] ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      id: callKitId,
       nameCaller: (data['callerName'] != null && data['callerName'].toString().isNotEmpty)
           ? data['callerName']
           : 'Visitor at Door',

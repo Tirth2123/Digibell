@@ -69,7 +69,10 @@ import flutter_callkit_incoming
       callData = json
     }
 
-    let id = callData["callId"] as? String ?? payloadDict["id"] as? String ?? UUID().uuidString
+    // iOS CallKit force-unwraps UUID(uuidString: data.uuid)! inside
+    // SwiftFlutterCallkitIncomingPlugin; guarantee a valid RFC-4122 UUID.
+    let rawId = callData["callId"] as? String ?? payloadDict["id"] as? String ?? ""
+    let id = UUID(uuidString: rawId)?.uuidString ?? UUID().uuidString
     let nameCaller = callData["callerName"] as? String ?? payloadDict["nameCaller"] as? String ?? "Someone"
     let handle = callData["callerPhone"] as? String ?? payloadDict["handle"] as? String ?? nameCaller
     let callType = callData["type"] as? String ?? payloadDict["type"] as? String ?? "audioCall"
