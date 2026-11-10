@@ -25,10 +25,6 @@ import flutter_callkit_incoming
     voipRegistry?.delegate = self
     voipRegistry?.desiredPushTypes = [.voIP]
 
-    // Register plugins immediately so SwiftFlutterCallkitIncomingPlugin.sharedInstance
-    // is initialized and available even on cold-start background VoIP wakeups.
-    GeneratedPluginRegistrant.register(with: self)
-
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
