@@ -25,6 +25,10 @@ import flutter_callkit_incoming
     voipRegistry?.delegate = self
     voipRegistry?.desiredPushTypes = [.voIP]
 
+    // Register plugins immediately so SwiftFlutterCallkitIncomingPlugin.sharedInstance
+    // is initialized and available even on cold-start background VoIP wakeups.
+    GeneratedPluginRegistrant.register(with: self)
+
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
@@ -83,7 +87,13 @@ import flutter_callkit_incoming
     data.extra = payloadDict as NSDictionary
 
     SwiftFlutterCallkitIncomingPlugin.sharedInstance?.showCallkitIncoming(data, fromPushKit: true)
-    completion()
+
+    // CallKit's reportNewIncomingCall is asynchronous.
+    // Defer completion by 1.5 seconds so the system provider completes
+    // presenting the native incoming call UI before iOS suspends the app.
+    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+      completion()
+    }
   }
 }
 
