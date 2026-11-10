@@ -37,7 +37,16 @@ target 'Runner' do
   end
 end
 
+
 post_install do |installer|
+  # Fix TARGET_OS_SIMULATOR issue in flutter_vibrate on Xcode 16+
+  Dir.glob(File.expand_path('~/.pub-cache/hosted/pub.dev/flutter_vibrate-*/ios/Classes/SwiftVibratePlugin.swift')).each do |file|
+    text = File.read(file)
+    if text.include?('TARGET_OS_SIMULATOR')
+      File.write(file, text.gsub('private let isDevice = TARGET_OS_SIMULATOR == 0', "#if targetEnvironment(simulator)\n  private let isDevice = false\n#else\n  private let isDevice = true\n#endif"))
+    end
+  end
+
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
 
@@ -58,3 +67,4 @@ post_install do |installer|
     end
   end
 end
+

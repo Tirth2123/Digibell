@@ -81,7 +81,7 @@ dependencies:
   ios_utsname_ext: ^2.3.0
   firebase_messaging:
   flutter_local_notifications:
-  flutter_vibrate:
+  flutter_vibrate: ^1.4.0
   lottie:
   agora_rtc_engine: ^6.5.1
   socket_io_client: ^2.0.3+1

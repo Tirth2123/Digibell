@@ -5,29 +5,36 @@ import FirebaseMessaging
 import PushKit
 import flutter_callkit_incoming
 
-@UIApplicationMain
-@objc class AppDelegate: FlutterAppDelegate, PKPushRegistryDelegate {
+@main
+@objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate, PKPushRegistryDelegate {
+  var voipRegistry: PKPushRegistry?
+
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    FirebaseApp.configure()
-    GeneratedPluginRegistrant.register(with: self)
+    if FirebaseApp.app() == nil {
+      FirebaseApp.configure()
+    }
     UNUserNotificationCenter.current().delegate = self
     application.registerForRemoteNotifications()
 
     // Setup VOIP PushKit
     let mainQueue = DispatchQueue.main
-    let voipRegistry = PKPushRegistry(queue: mainQueue)
-    voipRegistry.delegate = self
-    voipRegistry.desiredPushTypes = [.voIP]
+    voipRegistry = PKPushRegistry(queue: mainQueue)
+    voipRegistry?.delegate = self
+    voipRegistry?.desiredPushTypes = [.voIP]
 
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
+  func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
+    GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+  }
+
   override func application(
     _ application: UIApplication,
-    didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
+    didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Foundation.Data
   ) {
     Messaging.messaging().apnsToken = deviceToken
     super.application(application, didRegisterForRemoteNotificationsWithDeviceToken: deviceToken)
@@ -70,11 +77,10 @@ import flutter_callkit_incoming
 
     let data = flutter_callkit_incoming.Data(id: id, nameCaller: nameCaller, handle: handle, type: isVideo ? 1 : 0)
     data.duration = 45000
-    data.extra = payloadDict
+    data.extra = payloadDict as NSDictionary
 
-    SwiftFlutterCallkitIncomingPlugin.sharedInstance?.showCallkitIncoming(data, fromPushKit: true) {
-      completion()
-    }
+    SwiftFlutterCallkitIncomingPlugin.sharedInstance?.showCallkitIncoming(data, fromPushKit: true)
+    completion()
   }
 }
 
