@@ -2,25 +2,13 @@ class APIConstants {
   // static const baseUrl = 'http://52.66.209.70:3050/api/';
   static const imageUrl = 'https://digibells-assets.s3.ap-south-1.amazonaws.com/';
 
-  // Ngrok Public Tunnel URLs (Usable from ANY device on ANY Wi-Fi or Mobile Data):
-  static const baseUrl = 'https://marilyn-ungauged-venus.ngrok-free.dev/api';
-  static const socket = 'https://marilyn-ungauged-venus.ngrok-free.dev';
-
-  // Local Development URLs (Port 7500):
-  // static const baseUrl = 'http://10.16.166.159:7500/api';
-  // static const socket = 'http://10.16.166.159:7500';
-
-  // For Android Emulator (uncomment if using emulator):
-  // static const baseUrl = 'http://10.0.2.2:7500/api';
-  // static const socket = 'http://10.0.2.2:7500';
-
-  // For Localhost (iOS Simulator / Web):
-  // static const baseUrl = 'http://localhost:7500/api';
-  // static const socket = 'http://localhost:7500';
-
   // Production URLs:
-  // static const baseUrl = 'https://server.digibellstechnologies.com/api';
-  // static const socket = 'https://server.digibellstechnologies.com';
+  static const baseUrl = 'https://server.digibellstechnologies.com/api';
+  static const socket = 'https://server.digibellstechnologies.com';
+
+  // Ngrok Public Tunnel URLs (for local dev testing):
+  // static const baseUrl = 'https://marilyn-ungauged-venus.ngrok-free.dev/api';
+  // static const socket = 'https://marilyn-ungauged-venus.ngrok-free.dev';
   // static const baseUrl = 'https://noble-lobster-sharing.ngrok-free.app/api';
   // static const socket = 'https://noble-lobster-sharing.ngrok-free.app';
 
