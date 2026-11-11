@@ -97,6 +97,13 @@ class _RingingScreenState extends State<RingingScreen> {
     _timer?.cancel();
     _audioPlayer.dispose();
     stopCallVibration();
+
+    try {
+      if (StreamUtil.socket.hasValue && StreamUtil.socket.value.connected) {
+        StreamUtil.socket.value.emit("clearmycall", {'channelName': widget.channelName});
+      }
+    } catch (_) {}
+
     super.dispose();
   }
 

@@ -114,6 +114,13 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
     remoteVideoEnabled.close();
     streamRemoteUid.close();
     muted.close();
+
+    try {
+      if (StreamUtil.socket.hasValue && StreamUtil.socket.value.connected) {
+        StreamUtil.socket.value.emit("clearmycall", {'channelName': widget.channelName});
+      }
+    } catch (_) {}
+
     try {
       if (_engine != null) {
         _engine?.stopEchoTest();

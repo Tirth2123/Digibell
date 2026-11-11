@@ -68,8 +68,11 @@ class SocketConnectBloc extends Bloc<SocketConnectEvent, SocketConnectState> {
     StreamUtil.socket.value.onConnect((data) {
       logger.i('SOCKET connected 1112, ${StreamUtil.socket.value.connected}');
       try {
-        if (prefs.getString(AppConstants.userId) != '' || prefs.getString(AppConstants.userId) != null) {
-          StreamUtil.socket.value.emit("adduser", {'id': prefs.getString(AppConstants.userId) ?? ''});
+        final uid = prefs.getString(AppConstants.userId);
+        if (uid != null && uid.isNotEmpty) {
+          StreamUtil.socket.value.emit("adduser", {'id': uid});
+          // Self-heal: ensure server knows user is not in a call when connecting/reconnecting
+          StreamUtil.socket.value.emit("clearmycall", {'userId': uid});
         } else {
           logger.e('ADD USER TIME USER ID NULL');
         }
