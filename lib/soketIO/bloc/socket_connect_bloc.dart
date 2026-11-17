@@ -37,6 +37,18 @@ class SocketConnectBloc extends Bloc<SocketConnectEvent, SocketConnectState> {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     String? token = prefs.getString(AppConstants.token);
     logger.d('Token is: $token,');
+    if (StreamUtil.socket.hasValue && StreamUtil.socket.value.connected) {
+      logger.d('SOCKET_IO already connected, reusing existing socket.');
+      emit(SocketConnectState(isLoading: false, isCompleted: true));
+      return;
+    }
+    if (StreamUtil.socket.hasValue) {
+      try {
+        StreamUtil.socket.value.disconnect();
+        StreamUtil.socket.value.dispose();
+      } catch (_) {}
+    }
+
     try {
       IO.Socket socket = IO.io(
           APIConstants.socket,

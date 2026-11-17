@@ -196,9 +196,9 @@ class _FirstTimeHomeScreenState extends State<FirstTimeHomeScreen> with TickerPr
                 );
               }
             }
-            if (socketState.isFailed) {
-              AlertUtils.showManuallyCloseDialogue(context, state.errorMsg!, 4, 'Oops!');
-            }
+            // if (socketState.isFailed) {
+            //   AlertUtils.showManuallyCloseDialogue(context, state.errorMsg!, 4, 'Oops!');
+            // }
           },
           builder: (context, socketState) {
             return StreamBuilder<int>(
