@@ -63,8 +63,6 @@
 	<string>We require this permission to download QR codes to your device.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>This app needs photos access to get QR code and profile image from the photo library.</string>
-	<key>NSAppleMusicUsageDescription</key>
-    <string>This app requires access to music and media to play ringtones during incoming calls.</string>
 	<key>UIActivityItemsConfiguration</key>
 	<array>
 		<string>public.text</string>

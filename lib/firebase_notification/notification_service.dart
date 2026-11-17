@@ -22,27 +22,38 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   logger.i("IT'S HERE At BACKGROUND **${message.data['title']}");
   logger.w("ccc ${message.toMap()}");
 
-  if (message.data['title'] == 'Incoming Voice Call...' || message.data['title'] == 'Incoming Video Call...') {
+  // Handle visitor ending/cutting the call while phone is ringing in background/killed
+  final String? topAction = message.data['actionType']?.toString();
+  final String? title = message.data['title']?.toString();
+  if (topAction == 'callCut' ||
+      topAction == 'reject' ||
+      topAction == 'callEnded' ||
+      title == 'Call Ended' ||
+      title == 'Call Missed' ||
+      title == 'Missed Call') {
+    logger.w("Visitor ended call (background FCM) — stopping CallKit ringing immediately");
+    await FlutterCallkitIncoming.endAllCalls();
+    return;
+  }
+
+  if (title == 'Incoming Voice Call...' || title == 'Incoming Video Call...') {
     logger.w("REDIRECT FROM background..");
     final data = json.decode(message.data['data']);
 
-    if (data.containsKey('actionType')) {
+    if (data is Map && data.containsKey('actionType')) {
       logger.i("IT'S HERE At BACKGROUND 1414${data['actionType']}");
-      FlutterCallkitIncoming.endCall(callId1);
-      logger.i("IT'S HERE At BACKGROUND 4${data['actionType']}");
-      if (data['actionType'] == 'reject') {
-        FlutterCallkitIncoming.endAllCalls();
+      if (data['actionType'] == 'reject' || data['actionType'] == 'callCut' || data['actionType'] == 'noResponse') {
+        await FlutterCallkitIncoming.endAllCalls();
       } else {
-        logger.i("IT'S HERE At BACKGROUND 115 $callId1}");
-        showIncomingCallNotification(message.data);
+        await showIncomingCallNotification(message.data);
       }
     } else {
       logger.i("IT'S HERE At BACKGROUND 3${message.data}");
-      showIncomingCallNotification(message.data);
+      await showIncomingCallNotification(message.data);
     }
   } else {
     logger.i("IT'S HERE At BACKGROUND 1${message.data['title']}");
-    return null;
+    return;
   }
 }
 
@@ -107,8 +118,20 @@ class NotificationService {
   }
   
   Future<void> handleNotification(dynamic message) async {
+    final String? topAction = message.data['actionType']?.toString();
+    final String? title = message.data['title']?.toString();
+    if (topAction == 'callCut' ||
+        topAction == 'reject' ||
+        topAction == 'callEnded' ||
+        title == 'Call Ended' ||
+        title == 'Call Missed' ||
+        title == 'Missed Call') {
+      logger.w("Visitor ended call (foreground FCM) — stopping CallKit ringing immediately");
+      await FlutterCallkitIncoming.endAllCalls();
+      return;
+    }
 
-    if (message.data['title'] == 'Incoming Voice Call...' || message.data['title'] == 'Incoming Video Call...') {
+    if (title == 'Incoming Voice Call...' || title == 'Incoming Video Call...') {
       logger.w("REDIRECT FROM NOTTTTTTT.. — showing full-screen CallKit UI");
 
       try {

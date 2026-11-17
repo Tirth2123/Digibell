@@ -318,9 +318,12 @@ class SocketConnectBloc extends Bloc<SocketConnectEvent, SocketConnectState> {
         type: event.type,
       ));
 
-      // Additional debug logging for 'reject' action handling
-      if (event.actionType == 'reject') {
-        logger.w("Received 'reject' action - navigating to home.");
+      // Stop ringing & navigate home when call is rejected/cut/noResponse
+      if (event.actionType == 'reject' ||
+          event.actionType == 'noResponse' ||
+          event.actionType == 'callCut') {
+        logger.w("Received '${event.actionType}' action - stopping CallKit & navigating to home.");
+        await FlutterCallkitIncoming.endAllCalls();
         navigatorKey.currentState?.pushNamedAndRemoveUntil(
             AppScreens.firstTimeHomeScreen,(Route<dynamic> route) => false
         );

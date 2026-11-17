@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:Digibells/utils/logger.dart';
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:rxdart/subjects.dart';
@@ -89,7 +91,9 @@ class _AudioCallScreenState extends State<AudioCallScreen> {
 
   Future<void> initAgora() async {
     await Permission.microphone.request();
-    await Permission.bluetooth.request();
+    if (Platform.isAndroid) {
+      await Permission.bluetoothConnect.request();
+    }
 
     if (await Permission.microphone.isGranted) {
       try {
@@ -113,6 +117,7 @@ class _AudioCallScreenState extends State<AudioCallScreen> {
               _engine?.setEnableSpeakerphone(false);
             },
             onUserOffline: (RtcConnection connection, int remoteUid, UserOfflineReasonType reason) {
+              FlutterCallkitIncoming.endAllCalls();
               Navigator.pushNamedAndRemoveUntil(
                 context,
                 AppScreens.firstTimeHomeScreen,
@@ -130,15 +135,19 @@ class _AudioCallScreenState extends State<AudioCallScreen> {
           ),
         );
 
-        // Set the client role and join the channel
+        // Explicitly enable audio & publish mic track (required on iOS + CallKit)
+        await _engine?.enableAudio();
         await _engine?.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
 
         await _engine?.joinChannel(
           token: token,
           channelId: channelName,
           uid: 0,
-          options:   ChannelMediaOptions(
-
+          options: const ChannelMediaOptions(
+            clientRoleType: ClientRoleType.clientRoleBroadcaster,
+            channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
+            publishMicrophoneTrack: true,
+            autoSubscribeAudio: true,
           ),
         );
       } on AgoraRtcException catch (e) {
@@ -164,6 +173,10 @@ class _AudioCallScreenState extends State<AudioCallScreen> {
   void dispose() {
     _timer?.cancel();
     timing.close();
+
+    try {
+      FlutterCallkitIncoming.endAllCalls();
+    } catch (_) {}
 
     try {
       if (StreamUtil.socket.hasValue && StreamUtil.socket.value.connected) {

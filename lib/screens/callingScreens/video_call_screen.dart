@@ -5,6 +5,7 @@ import 'package:agora_rtc_engine/agora_rtc_engine.dart'; // Add this import
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -116,6 +117,10 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
     muted.close();
 
     try {
+      FlutterCallkitIncoming.endAllCalls();
+    } catch (_) {}
+
+    try {
       if (StreamUtil.socket.hasValue && StreamUtil.socket.value.connected) {
         StreamUtil.socket.value.emit("clearmycall", {'channelName': widget.channelName});
       }
@@ -191,6 +196,7 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
           },
           onUserOffline: (RtcConnection connection, int remoteUid, UserOfflineReasonType reason) {
             print("User Offline: $remoteUid, reason: $reason");
+            FlutterCallkitIncoming.endAllCalls();
             setState(() {
               _remoteUid = null;
             });
@@ -214,13 +220,21 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
       );
 
       await _engine?.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
+      await _engine?.enableAudio();
       await _engine?.enableVideo();
       await _engine?.startPreview();
       await _engine?.joinChannel(
         token: widget.token,
         channelId: widget.channelName,
         uid: 0,
-        options: const ChannelMediaOptions(),
+        options: const ChannelMediaOptions(
+          clientRoleType: ClientRoleType.clientRoleBroadcaster,
+          channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
+          publishCameraTrack: true,
+          publishMicrophoneTrack: true,
+          autoSubscribeAudio: true,
+          autoSubscribeVideo: true,
+        ),
       );
     } catch (e) {
       print("Error during Agora Initialization: $e");

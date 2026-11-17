@@ -534,22 +534,34 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver{
     }
   }
 
+  Future<void> _waitForSocketConnection({Duration timeout = const Duration(milliseconds: 2500)}) async {
+    final stopwatch = Stopwatch()..start();
+    while (stopwatch.elapsed < timeout) {
+      if (StreamUtil.socket.hasValue && StreamUtil.socket.value.connected) {
+        return;
+      }
+      await Future.delayed(const Duration(milliseconds: 100));
+    }
+  }
+
   Future<void> _handleCallAccept(String callId, Map<String, dynamic> data, String actionType) async {
-    await FlutterCallkitIncoming.endCall(callId);
-    if (StreamUtil.socket.hasValue && !StreamUtil.socket.value.connected) {
-      await _connectSocketAndPerformAction(data, actionType);
-      await callAccepted(data);
-      await navigateToCall(data);
-    } else if (!StreamUtil.socket.hasValue) {
-      await _connectSocketAndPerformAction(data, actionType);
-      await callAccepted(data);
-      await navigateToCall(data);
+    if (Platform.isAndroid) {
+      await FlutterCallkitIncoming.endCall(callId);
+    } else if (Platform.isIOS) {
+      // On iOS, CallKit owns AVAudioSession. Ending CallKit on accept kills
+      // the iOS audio session and blocks Agora mic/speaker in background/locked.
+      // Mark connected instead; CallKit is ended when the call actually finishes.
+      await FlutterCallkitIncoming.setCallConnected(callId);
     }
-    else {
-      await _callAcceptPerformAction(data, actionType);
-      await callAccepted(data);
-      await navigateToCall(data);
+
+    if (!StreamUtil.socket.hasValue || !StreamUtil.socket.value.connected) {
+      BlocProvider.of<SocketConnectBloc>(context).add(PerformSocketConnectEvent());
+      await _waitForSocketConnection();
     }
+
+    await _callAcceptPerformAction(data, actionType);
+    await callAccepted(data);
+    await navigateToCall(data);
   }
 
   Future<void> navigateToCall(Map<String, dynamic> data) async {
