@@ -167,15 +167,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver{
       }
 
       // 3. Request Full-Screen Intent permission (Android 14+ / API 34+)
+      //    Natively checks canUseFullScreenIntent() on Android 14+ and opens
+      //    the Full-Screen Notifications toggle only if not already granted.
       if (!_askedFullScreenThisSession) {
-        final dynamic canUseFullScreen =
-            await FlutterCallkitIncoming.canUseFullScreenIntent();
-        logger.i('Can use full screen intent: $canUseFullScreen');
-        if (canUseFullScreen != true) {
-          _askedFullScreenThisSession = true;
-          await FlutterCallkitIncoming.requestFullIntentPermission();
-          return; // Next step runs on resume after user returns from settings
-        }
+        _askedFullScreenThisSession = true;
+        await FlutterCallkitIncoming.requestFullIntentPermission();
       }
 
       // 4. Request Display Over Other Apps (required on Xiaomi/MIUI/Oppo/Vivo for background calls)
