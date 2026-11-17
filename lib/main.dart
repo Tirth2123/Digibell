@@ -136,6 +136,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver{
   OverlaySupportEntry? entry;
   CallEvent? lastCallEvent;
   StreamSubscription? _callKitSubscription;
+  String? _acceptedCallId;
 
   @override
   void initState() {
@@ -185,7 +186,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver{
             if (callId != null) {
               switch (event.event) {
                 case Event.actionCallAccept:
-                  logger.w("Event.actionCallAccept called");
+                  logger.w("Event.actionCallAccept called for callId: $callId");
+                  _acceptedCallId = callId;
                   await _handleCallAccept(callId, decodedData, 'accept');
                   break;
                 case Event.actionCallDecline:
@@ -193,11 +195,20 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver{
                   await _handleCallEnd(callId, decodedData, 'reject');
                   break;
                 case Event.actionCallEnded:
-                  logger.w("Event.actionCallEnded called");
+                  logger.w("Event.actionCallEnded called for callId: $callId");
+                  // If this call was already accepted, ending CallKit UI should NOT hang up the active call!
+                  if (_acceptedCallId == callId) {
+                    logger.i("Call $callId was accepted; ignoring actionCallEnded to prevent dropping call.");
+                    break;
+                  }
                   await _handleCallEnd(callId, decodedData, 'noResponse');
                   break;
                 case Event.actionCallTimeout:
                   logger.w("Event.actionCallTimeout called");
+                  if (_acceptedCallId == callId) {
+                    logger.i("Call $callId was accepted; ignoring actionCallTimeout.");
+                    break;
+                  }
                   await _handleCallEnd(callId, decodedData, 'noResponse');
                   break;
                 default:
