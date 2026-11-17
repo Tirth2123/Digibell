@@ -137,9 +137,21 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver{
   CallEvent? lastCallEvent;
   StreamSubscription? _callKitSubscription;
   String? _acceptedCallId;
+  static const MethodChannel _permChannel = MethodChannel('com.app.digibell/permissions');
   bool _isRequestingPermissions = false;
   bool _askedFullScreenThisSession = false;
   bool _askedOverlayThisSession = false;
+
+  Future<bool> _canUseFullScreenIntent() async {
+    if (!Platform.isAndroid) return true;
+    try {
+      final bool? granted = await _permChannel.invokeMethod<bool>('canUseFullScreenIntent');
+      return granted ?? true;
+    } catch (e) {
+      logger.e('canUseFullScreenIntent check error: $e');
+      return true;
+    }
+  }
 
   Future<void> _requestAllCallPermissions() async {
     if (_isRequestingPermissions) return;
@@ -166,12 +178,15 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver{
         await Permission.ignoreBatteryOptimizations.request();
       }
 
-      // 3. Request Full-Screen Intent permission (Android 14+ / API 34+)
-      //    Natively checks canUseFullScreenIntent() on Android 14+ and opens
-      //    the Full-Screen Notifications toggle only if not already granted.
+      // 3. Request Full-Screen Intent permission ONLY if Android reports it is NOT granted
       if (!_askedFullScreenThisSession) {
-        _askedFullScreenThisSession = true;
-        await FlutterCallkitIncoming.requestFullIntentPermission();
+        final bool canUseFullScreen = await _canUseFullScreenIntent();
+        logger.i('Can use full screen intent: $canUseFullScreen');
+        if (!canUseFullScreen) {
+          _askedFullScreenThisSession = true;
+          await FlutterCallkitIncoming.requestFullIntentPermission();
+          return; // Next step runs on resume after user returns from settings
+        }
       }
 
       // 4. Request Display Over Other Apps (required on Xiaomi/MIUI/Oppo/Vivo for background calls)
