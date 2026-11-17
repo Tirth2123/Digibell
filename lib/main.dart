@@ -137,20 +137,75 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver{
   CallEvent? lastCallEvent;
   StreamSubscription? _callKitSubscription;
   String? _acceptedCallId;
+  bool _isRequestingPermissions = false;
+  bool _askedFullScreenThisSession = false;
+  bool _askedOverlayThisSession = false;
+
+  Future<void> _requestAllCallPermissions() async {
+    if (_isRequestingPermissions) return;
+    _isRequestingPermissions = true;
+    try {
+      // 1. Request ALL standard runtime permissions in ONE single batch
+      //    so Android never throws "Can request only one set of permissions at a time"
+      final List<Permission> runtimePermissions = [
+        Permission.notification,
+        Permission.microphone,
+        Permission.camera,
+        if (Platform.isAndroid) Permission.phone,
+        if (Platform.isAndroid) Permission.bluetoothConnect,
+      ];
+
+      final Map<Permission, PermissionStatus> statuses =
+          await runtimePermissions.request();
+      logger.i('Runtime permissions result: $statuses');
+
+      if (!Platform.isAndroid) return;
+
+      // 2. Request Ignore Battery Optimizations (in-app popup so background calls work)
+      if (!await Permission.ignoreBatteryOptimizations.isGranted) {
+        await Permission.ignoreBatteryOptimizations.request();
+      }
+
+      // 3. Request Full-Screen Intent permission (Android 14+ / API 34+)
+      if (!_askedFullScreenThisSession) {
+        final dynamic canUseFullScreen =
+            await FlutterCallkitIncoming.canUseFullScreenIntent();
+        logger.i('Can use full screen intent: $canUseFullScreen');
+        if (canUseFullScreen != true) {
+          _askedFullScreenThisSession = true;
+          await FlutterCallkitIncoming.requestFullIntentPermission();
+          return; // Next step runs on resume after user returns from settings
+        }
+      }
+
+      // 4. Request Display Over Other Apps (required on Xiaomi/MIUI/Oppo/Vivo for background calls)
+      await _requestOverlayIfNeeded();
+    } catch (e) {
+      logger.e('Error requesting call permissions: $e');
+    } finally {
+      _isRequestingPermissions = false;
+    }
+  }
+
+  Future<void> _requestOverlayIfNeeded() async {
+    if (!Platform.isAndroid || _askedOverlayThisSession) return;
+    try {
+      if (!await Permission.systemAlertWindow.isGranted) {
+        _askedOverlayThisSession = true;
+        await Permission.systemAlertWindow.request();
+      }
+    } catch (e) {
+      logger.e('Error requesting systemAlertWindow permission: $e');
+    }
+  }
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     initConnectivity().then((val) async {
-
-      //await FlutterCallkitIncoming.endAllCalls();
-      await [Permission.microphone, Permission.camera].request();
-      await socketConnect();
-
-      // SINGLE global CallKit event listener — handles ALL call events
-      // regardless of whether the app is foreground, background, or was killed.
-      // No isAppInBackground guard — CallKit events must ALWAYS be processed.
+      // SINGLE global CallKit event listener — register FIRST before anything else
+      // so cold-start CallKit accept events are never delayed or missed.
       _callKitSubscription?.cancel(); // Prevent duplicate listeners
       _callKitSubscription = FlutterCallkitIncoming.onEvent.listen((event) async {
         if (event == null) {
@@ -224,6 +279,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver{
           logger.e("extraData['data'] is null or missing.");
         }
       });
+
+      await socketConnect();
+      // Request all call, notification, battery & full-screen intent permissions sequentially
+      await _requestAllCallPermissions();
     });
     _connectivitySubscription = connectivity.onConnectivityChanged.listen(_updateConnectionStatus);
   }
@@ -235,6 +294,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver{
       print("didChangeAppLifecycleState App is in foreground 🚀");
       // Reconnect socket if it was disconnected while in background
       socketConnect();
+      // If returning from Full-Screen Intent settings, ask Display Over Other Apps once
+      if (Platform.isAndroid &&
+          _askedFullScreenThisSession &&
+          !_askedOverlayThisSession) {
+        _requestOverlayIfNeeded();
+      }
     } else if (state == AppLifecycleState.paused) {
       StreamUtil.isAppInBackground.add(true);
       print("didChangeAppLifecycleState App is in background ⏳ ${StreamUtil.isAppInBackground.value}");

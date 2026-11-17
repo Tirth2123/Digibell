@@ -57,22 +57,27 @@ class NotificationService {
 
   void _initializeFirebaseMessaging() async {
     if (_listenersInitialized) return;
-    // Request permissions for iOS
-    NotificationSettings settings = await _firebaseMessaging.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
 
-    // Handle background messages with top-level entry point
+    // Handle background messages with top-level entry point immediately
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
-    if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-      logger.i('User granted permission');
-    } else if (settings.authorizationStatus == AuthorizationStatus.provisional) {
-      logger.i('User granted provisional permission');
-    } else {
-      logger.w('User declined or has not accepted permission');
+    // On iOS, request APNs notification permission here.
+    // On Android, all runtime permissions (including notifications, camera, mic,
+    // phone, bluetooth, full-screen intent) are requested sequentially in main.dart
+    // to prevent Android's "Can request only one set of permissions at a time" collision.
+    if (Platform.isIOS) {
+      NotificationSettings settings = await _firebaseMessaging.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+      if (settings.authorizationStatus == AuthorizationStatus.authorized) {
+        logger.i('User granted iOS notification permission');
+      } else if (settings.authorizationStatus == AuthorizationStatus.provisional) {
+        logger.i('User granted provisional iOS notification permission');
+      } else {
+        logger.w('User declined or has not accepted iOS notification permission');
+      }
     }
 
 
