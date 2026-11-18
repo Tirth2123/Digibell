@@ -170,13 +170,26 @@ class PushNotificationService {
 
   Future getDeviceData() async {
     final DeviceInfoPlugin deviceInfoPlugin = DeviceInfoPlugin();
-    String token = '';
+    SharedPreferences pref = await SharedPreferences.getInstance();
+    String token = pref.getString(AppConstants.fcmToken) ?? '';
+    String? voipToken = pref.getString(AppConstants.voipToken);
+
     try {
-      token = await _fcm.getToken() ?? '';
+      // On iOS, APNs token may take a moment after first launch permission grant
+      if (Platform.isIOS) {
+        for (int attempt = 0; attempt < 5; attempt++) {
+          final apns = await _fcm.getAPNSToken();
+          if (apns != null && apns.isNotEmpty) break;
+          await Future.delayed(const Duration(milliseconds: 300));
+        }
+      }
+      final fetchedToken = await _fcm.getToken();
+      if (fetchedToken != null && fetchedToken.isNotEmpty) {
+        token = fetchedToken;
+      }
     } catch (e) {
       logger.w('Could not fetch FCM token immediately: $e');
     }
-    String? voipToken;
 
     PackageInfo? packageInfo;
     try {
@@ -205,7 +218,15 @@ class PushNotificationService {
         deviceId = data.identifierForVendor ?? 'ios-${DateTime.now().millisecondsSinceEpoch}';
 
         try {
-          voipToken = await FlutterCallkitIncoming.getDevicePushTokenVoIP();
+          // Wait briefly on fresh iOS installs for PushKit to deliver the VoIP token
+          for (int attempt = 0; attempt < 6; attempt++) {
+            final fetchedVoip = await FlutterCallkitIncoming.getDevicePushTokenVoIP();
+            if (fetchedVoip != null && fetchedVoip.toString().isNotEmpty) {
+              voipToken = fetchedVoip.toString();
+              break;
+            }
+            await Future.delayed(const Duration(milliseconds: 300));
+          }
           logger.i('Fetched VoIP PushKit Token: $voipToken');
         } catch (e) {
           logger.e('Failed to fetch VoIP PushKit token: $e');
@@ -228,7 +249,6 @@ class PushNotificationService {
       "osVersion": osVersion ?? '1.0',
     };
 
-    SharedPreferences pref = await SharedPreferences.getInstance();
     if (token.isNotEmpty) {
       await pref.setString(AppConstants.fcmToken, token);
     }

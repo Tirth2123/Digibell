@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:Digibells/utils/logger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -29,6 +30,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
   PushNotificationService _notificationService = PushNotificationService();
 
   Map? notificationData;
+  String? activeCallKitId;
   bool fromNotification = false;
 
   void _getVersion() async {
@@ -47,6 +49,13 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
     if (mounted) {
       _notificationService.initialize();
       Future.delayed(const Duration(seconds: 2), () {
+        if (!mounted) return;
+        // If main.dart already handled an incoming CallKit accept while splash was showing,
+        // do NOT wipe the navigation stack with firstTimeHomeScreen!
+        if (isCallScreenActive) {
+          logger.i('SplashScreen: Call screen already active — skipping home navigation.');
+          return;
+        }
         // prefs?.clear();
         if (prefs?.getBool(AppConstants.guestLogin) == true) {
           prefs?.clear();
@@ -63,19 +72,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
           } else {
             Navigator.pushNamedAndRemoveUntil(context, AppScreens.loginScreen, (Route<dynamic> route) => false);
           }
-
-          /*prefs?.getBool(AppConstants.login) ?? false
-              ? Navigator.pushNamedAndRemoveUntil(context, AppScreens.firstTimeHomeScreen, (Route<dynamic> route) => false)
-              : prefs?.getBool(AppConstants.register) ?? false
-              ? Navigator.pushNamedAndRemoveUntil(context, AppScreens.singUpScreen, (Route<dynamic> route) => false)
-              : Navigator.pushNamedAndRemoveUntil(context, AppScreens.loginScreen, (Route<dynamic> route) => false);*/
         } else {
-          /*prefs?.getBool(AppConstants.login) ?? false
-              ? Navigator.pushNamedAndRemoveUntil(context, AppScreens.firstTimeHomeScreen, (Route<dynamic> route) => false)
-              : prefs?.getBool(AppConstants.register) ?? false
-              ? Navigator.pushNamedAndRemoveUntil(context, AppScreens.singUpScreen, (Route<dynamic> route) => false)
-              : Navigator.pushNamedAndRemoveUntil(context, AppScreens.loginScreen, (Route<dynamic> route) => false);*/
-
           if (prefs?.getBool(AppConstants.login) ?? false) {
             Navigator.pushNamedAndRemoveUntil(context, AppScreens.firstTimeHomeScreen, (Route<dynamic> route) => false);
             if (fromNotification && notificationData != null) {
@@ -87,7 +84,6 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
             Navigator.pushNamedAndRemoveUntil(context, AppScreens.loginScreen, (Route<dynamic> route) => false);
           }
         }
-        // prefs?.clear();
       });
     }
   }
@@ -105,43 +101,46 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
       final initialCallEvents = await FlutterCallkitIncoming.activeCalls();
 
       if (initialCallEvents != null && initialCallEvents.isNotEmpty) {
-        // Fluttertoast.showToast(msg: 'Initial Call Events: ${initialCallEvents.runtimeType.toString()}');
         logger.d('Initial Call Events: $initialCallEvents');
-        //  Clipboard.setData(ClipboardData(text: initialCallEvents.toString()));
-
-        // Decode the JSON string
 
         try {
-          // Decode the JSON
           if (initialCallEvents is List) {
             logger.d('Initial Call Events length: ${initialCallEvents.length}');
-            //final Map<String, dynamic> callEvent = initialCallEvents.last;
             final Map callEvent = initialCallEvents.last.map(
               (key, value) => MapEntry(key.toString(), value),
             );
 
             logger.d('Initial Call Events 111: $callEvent');
 
-            final Map extra = callEvent['extra'].map(
-              (key, value) => MapEntry(key.toString(), value),
-            );
+            // CRITICAL FOR iOS: PushKit wakes the app in the background while the phone
+            // is STILL RINGING (before the user taps Accept). activeCalls() contains that
+            // ringing call with isAccepted == false! NEVER auto-accept or endAllCalls() on
+            // an unanswered ringing call — only redirect if the call was ACTUALLY accepted.
+            final bool isAccepted = callEvent['isAccepted'] == true || callEvent['accepted'] == true;
+            if (!isAccepted) {
+              logger.i('SplashScreen: Active CallKit call is still ringing (not yet accepted) — skipping auto-redirect.');
+              return;
+            }
+
+            activeCallKitId = callEvent['id']?.toString();
+            final rawExtra = callEvent['extra'];
+            final Map extra = rawExtra is Map
+                ? rawExtra.map((key, value) => MapEntry(key.toString(), value))
+                : {};
 
             logger.d('Initial Call Events extra: $extra');
 
-            final Map data = jsonDecode(extra['data']);
+            final rawData = extra['data'] ?? extra;
+            final Map data = rawData is String
+                ? jsonDecode(rawData)
+                : (rawData is Map ? Map<String, dynamic>.from(rawData) : {});
+
+            if (data.isEmpty || (data['channelName'] == null && data['token'] == null)) {
+              logger.w('SplashScreen: Accepted call event missing channelName/token — skipping.');
+              return;
+            }
 
             logger.d('Initial Call Events data: $data');
-
-            // Access specific keys
-            final String callerName = data['callerName'] ?? 'Unknown';
-            final String channelName = data['channelName'] ?? 'Unknown Channel';
-            final String token = data['token'] ?? 'No Token';
-
-            // Print the parsed data
-            print('Caller Name: $callerName');
-            print('Channel Name: $channelName');
-            print('Token: $token');
-
             fromNotification = true;
             notificationData = data;
           }
@@ -153,12 +152,32 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
       }
     } catch (e) {
       print('Error fetching active calls: $e');
-      //Fluttertoast.showToast(msg: 'Failed to fetch active calls.');
     }
   }
 
   Future<void> incomingRedirection(Map data) async {
-    await FlutterCallkitIncoming.endAllCalls();
+    if (isCallScreenActive) {
+      logger.i('SplashScreen.incomingRedirection: Call screen already active — skipping.');
+      return;
+    }
+    isCallScreenActive = true;
+
+    if (Platform.isAndroid) {
+      await FlutterCallkitIncoming.endAllCalls();
+    } else if (Platform.isIOS && activeCallKitId != null && activeCallKitId!.isNotEmpty) {
+      // Keep iOS CallKit AVAudioSession alive for Agora
+      await FlutterCallkitIncoming.setCallConnected(activeCallKitId!);
+    }
+
+    if (!StreamUtil.socket.hasValue || !StreamUtil.socket.value.connected) {
+      BlocProvider.of<SocketConnectBloc>(context).add(PerformSocketConnectEvent());
+      final sw = Stopwatch()..start();
+      while (sw.elapsedMilliseconds < 2500) {
+        if (StreamUtil.socket.hasValue && StreamUtil.socket.value.connected) break;
+        await Future.delayed(const Duration(milliseconds: 100));
+      }
+    }
+
     await callAccepted(data);
     await actionClick('accept', data);
     if (data['type'] == 'audioCall') {

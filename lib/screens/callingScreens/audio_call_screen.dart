@@ -11,6 +11,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:rxdart/subjects.dart';
 import '../../api_client/api_constans.dart';
 import '../../app_screens/app_screens.dart';
+import '../../main.dart';
 import '../../soketIO/bloc/socket_connect_bloc.dart';
 import '../../utils/alert_utils.dart';
 import '../../utils/app_styles.dart';
@@ -136,6 +137,9 @@ class _AudioCallScreenState extends State<AudioCallScreen> {
         );
 
         // Explicitly enable audio & publish mic track (required on iOS + CallKit)
+        if (Platform.isIOS) {
+          await _engine?.setParameters('{"che.audio.keep.audiosession":true}');
+        }
         await _engine?.enableAudio();
         await _engine?.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
 
@@ -171,6 +175,7 @@ class _AudioCallScreenState extends State<AudioCallScreen> {
 
   @override
   void dispose() {
+    isCallScreenActive = false;
     _timer?.cancel();
     timing.close();
 

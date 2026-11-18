@@ -151,9 +151,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         if (stateC.model?.data?.deleted == true) {
                           _showReactivateAccountDialog(context);
                         } else {
-                          if (prefs?.getString(AppConstants.deviceData) == null) {
-                            await PushNotificationService().getDeviceData();
-                          }
+                          // Always refresh FCM & iOS VoIP PushKit tokens right before login/register
+                          // so first-time installs never register with empty tokens cached at splash.
+                          await PushNotificationService().getDeviceData();
                           String deviceData = prefs?.getString(AppConstants.deviceData) ?? '';
                           if (deviceData.isNotEmpty) {
                             try {
@@ -444,6 +444,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future socialLoginAPI(String type, auth.User user) async {
     String? token = await user.getIdToken(true);
+    await PushNotificationService().getDeviceData();
     SharedPreferences pref = await SharedPreferences.getInstance();
     String deviceData = pref.getString(AppConstants.deviceData) ?? '';
     Map<String, dynamic> deviceMap = jsonDecode(deviceData) as Map<String, dynamic>;

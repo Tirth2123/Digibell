@@ -83,6 +83,7 @@ import 'screens/splashScreen/splash_screen.dart';
 SharedPreferences? prefs;
 List<ConnectivityResult> connectionStatus = [ConnectivityResult.none];
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+bool isCallScreenActive = false;
 
 class MyHttpOverrides extends HttpOverrides {
   @override
@@ -137,6 +138,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver{
   CallEvent? lastCallEvent;
   StreamSubscription? _callKitSubscription;
   String? _acceptedCallId;
+  DateTime? _acceptedAt;
   static const MethodChannel _permChannel = MethodChannel('com.app.digibell/permissions');
   bool _isRequestingPermissions = false;
   bool _askedFullScreenThisSession = false;
@@ -210,87 +212,114 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver{
     }
   }
 
+  void _registerCallKitListener() {
+    // SINGLE global CallKit event listener — register SYNCHRONOUSLY in initState
+    // before any async work so cold-start iOS/Android CallKit accept events are never missed.
+    _callKitSubscription?.cancel();
+    _callKitSubscription = FlutterCallkitIncoming.onEvent.listen((event) async {
+      if (event == null) {
+        logger.e("Received null event.");
+        return;
+      }
+
+      final callId = event.body['id'];
+      var extraData = event.body['extra'] ?? {};
+      if (extraData is String) {
+        try {
+          extraData = json.decode(extraData);
+        } catch (_) {}
+      }
+
+      // On incoming call, always ensure socket is connected
+      if (event.event == Event.actionCallIncoming) {
+        logger.i("CallKit actionCallIncoming — ensuring socket connection");
+        if (!StreamUtil.socket.hasValue || !StreamUtil.socket.value.connected) {
+          await connectSocketFromBackground();
+        }
+        return;
+      }
+
+      dynamic rawCallData = extraData is Map ? (extraData['data'] ?? extraData) : extraData;
+      if (rawCallData != null) {
+        try {
+          final decodedData = rawCallData is String
+              ? Map<String, dynamic>.from(json.decode(rawCallData))
+              : Map<String, dynamic>.from(rawCallData);
+
+          logger.w("Received extra data: ${event.body['extra']}");
+          logger.w("Decoded data In Main: $decodedData");
+
+          if (callId != null) {
+            switch (event.event) {
+              case Event.actionCallAccept:
+                logger.w("Event.actionCallAccept called for callId: $callId");
+                if (_acceptedCallId == callId && isCallScreenActive) {
+                  logger.i("Call $callId already accepted & active; ignoring duplicate accept.");
+                  break;
+                }
+                _acceptedCallId = callId;
+                _acceptedAt = DateTime.now();
+                await _handleCallAccept(callId, decodedData, 'accept');
+                break;
+              case Event.actionCallDecline:
+                logger.w("Event.actionCallDecline called");
+                await _handleCallEnd(callId, decodedData, 'reject');
+                break;
+              case Event.actionCallEnded:
+                logger.w("Event.actionCallEnded called for callId: $callId");
+                if (_acceptedCallId == callId) {
+                  final elapsedMs = _acceptedAt != null
+                      ? DateTime.now().difference(_acceptedAt!).inMilliseconds
+                      : 0;
+                  // On Android, endCall(callId) is called immediately on accept.
+                  // On iOS, ignore any artifact within 3s of accept, OR if the call screen already closed.
+                  // If the user taps the native iOS CallKit red Hang Up button >3s into an active call,
+                  // end the call cleanly so the web caller disconnects too.
+                  if (Platform.isAndroid || !isCallScreenActive || elapsedMs < 3000) {
+                    logger.i("Call $callId was accepted; ignoring actionCallEnded to prevent dropping call.");
+                    break;
+                  }
+                  logger.w("iOS native CallKit hang-up during active call — ending call cleanly.");
+                  isCallScreenActive = false;
+                  await _handleCallEnd(callId, decodedData, 'reject');
+                  navigatorKey.currentState?.pushNamedAndRemoveUntil(
+                    AppScreens.firstTimeHomeScreen,
+                    (Route<dynamic> route) => false,
+                  );
+                  StreamUtil.bottomNavigationIndex.add(0);
+                  break;
+                }
+                await _handleCallEnd(callId, decodedData, 'noResponse');
+                break;
+              case Event.actionCallTimeout:
+                logger.w("Event.actionCallTimeout called");
+                if (_acceptedCallId == callId) {
+                  logger.i("Call $callId was accepted; ignoring actionCallTimeout.");
+                  break;
+                }
+                await _handleCallEnd(callId, decodedData, 'noResponse');
+                break;
+              default:
+                logger.w("Unhandled event: ${event.event}");
+            }
+          } else {
+            logger.e("callId is null.");
+          }
+        } catch (e) {
+          logger.e("Error decoding JSON data: $e");
+        }
+      } else {
+        logger.e("extraData['data'] is null or missing.");
+      }
+    });
+  }
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _registerCallKitListener();
     initConnectivity().then((val) async {
-      // SINGLE global CallKit event listener — register FIRST before anything else
-      // so cold-start CallKit accept events are never delayed or missed.
-      _callKitSubscription?.cancel(); // Prevent duplicate listeners
-      _callKitSubscription = FlutterCallkitIncoming.onEvent.listen((event) async {
-        if (event == null) {
-          logger.e("Received null event.");
-          return;
-        }
-
-        final callId = event.body['id'];
-        var extraData = event.body['extra'] ?? {};
-        if (extraData is String) {
-          try {
-            extraData = json.decode(extraData);
-          } catch (_) {}
-        }
-
-        // On incoming call, always ensure socket is connected
-        if (event.event == Event.actionCallIncoming) {
-          logger.i("CallKit actionCallIncoming — ensuring socket connection");
-          if (!StreamUtil.socket.hasValue || !StreamUtil.socket.value.connected) {
-            await connectSocketFromBackground();
-          }
-          return;
-        }
-
-        dynamic rawCallData = extraData['data'] ?? extraData;
-        if (rawCallData != null) {
-          try {
-            final decodedData = rawCallData is String ? json.decode(rawCallData) : Map<String, dynamic>.from(rawCallData);
-
-            logger.w("Received extra data: ${event.body['extra']}");
-            logger.w("Decoded data In Main: $decodedData");
-
-            if (callId != null) {
-              switch (event.event) {
-                case Event.actionCallAccept:
-                  logger.w("Event.actionCallAccept called for callId: $callId");
-                  _acceptedCallId = callId;
-                  await _handleCallAccept(callId, decodedData, 'accept');
-                  break;
-                case Event.actionCallDecline:
-                  logger.w("Event.actionCallDecline called");
-                  await _handleCallEnd(callId, decodedData, 'reject');
-                  break;
-                case Event.actionCallEnded:
-                  logger.w("Event.actionCallEnded called for callId: $callId");
-                  // If this call was already accepted, ending CallKit UI should NOT hang up the active call!
-                  if (_acceptedCallId == callId) {
-                    logger.i("Call $callId was accepted; ignoring actionCallEnded to prevent dropping call.");
-                    break;
-                  }
-                  await _handleCallEnd(callId, decodedData, 'noResponse');
-                  break;
-                case Event.actionCallTimeout:
-                  logger.w("Event.actionCallTimeout called");
-                  if (_acceptedCallId == callId) {
-                    logger.i("Call $callId was accepted; ignoring actionCallTimeout.");
-                    break;
-                  }
-                  await _handleCallEnd(callId, decodedData, 'noResponse');
-                  break;
-                default:
-                  logger.w("Unhandled event: ${event.event}");
-              }
-            } else {
-              logger.e("callId is null.");
-            }
-          } catch (e) {
-            logger.e("Error decoding JSON data: $e");
-          }
-        } else {
-          logger.e("extraData['data'] is null or missing.");
-        }
-      });
-
       await socketConnect();
       // Request all call, notification, battery & full-screen intent permissions sequentially
       await _requestAllCallPermissions();
@@ -545,6 +574,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver{
   }
 
   Future<void> _handleCallAccept(String callId, Map<String, dynamic> data, String actionType) async {
+    isCallScreenActive = true;
     if (Platform.isAndroid) {
       await FlutterCallkitIncoming.endCall(callId);
     } else if (Platform.isIOS) {

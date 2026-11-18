@@ -12,6 +12,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:rxdart/subjects.dart';
 import '../../api_client/api_constans.dart';
 import '../../app_screens/app_screens.dart';
+import '../../main.dart';
 import '../../soketIO/bloc/socket_connect_bloc.dart';
 import '../../utils/alert_utils.dart';
 import '../../utils/app_styles.dart';
@@ -109,6 +110,7 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
 
   @override
   void dispose() {
+    isCallScreenActive = false;
     _timer?.cancel();
     timing.close();
     localUserJoined.close();
@@ -219,6 +221,9 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
         ),
       );
 
+      if (Platform.isIOS) {
+        await _engine?.setParameters('{"che.audio.keep.audiosession":true}');
+      }
       await _engine?.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
       await _engine?.enableAudio();
       await _engine?.enableVideo();
@@ -252,7 +257,9 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
     setState(() {
       _speaker = !_speaker;
     });
-    await _engine?.muteRemoteAudioStream(uid: _remoteUid!, mute: _speaker);
+    if (_remoteUid != null) {
+      await _engine?.muteRemoteAudioStream(uid: _remoteUid!, mute: _speaker);
+    }
   }
 
   void toggleVideo() async {
