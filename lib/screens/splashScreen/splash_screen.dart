@@ -51,9 +51,9 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
       final data = killedStateCallData!;
       killedStateCallData = null; // consume it
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        incomingRedirection(data);
+        incomingRedirection(data, force: true);
       });
-      await checkUserLoginAndRedirection();
+      // Do NOT proceed to checkUserLoginAndRedirection() — prevents any home redirect!
       return;
     }
     // ────────────────────────────────────────────────────────────────────────
@@ -171,18 +171,22 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
     }
   }
 
-  Future<void> incomingRedirection(Map data) async {
-    if (isCallScreenActive) {
+  Future<void> incomingRedirection(Map data, {bool force = false}) async {
+    if (isCallScreenActive && !force) {
       logger.i('SplashScreen.incomingRedirection: Call screen already active — skipping.');
       return;
     }
     isCallScreenActive = true;
 
+    final String? callId = (activeCallKitId != null && activeCallKitId!.isNotEmpty)
+        ? activeCallKitId
+        : data['callId']?.toString();
+
     if (Platform.isAndroid) {
       await FlutterCallkitIncoming.endAllCalls();
-    } else if (Platform.isIOS && activeCallKitId != null && activeCallKitId!.isNotEmpty) {
+    } else if (Platform.isIOS && callId != null && callId.isNotEmpty) {
       // Keep iOS CallKit AVAudioSession alive for Agora
-      await FlutterCallkitIncoming.setCallConnected(activeCallKitId!);
+      await FlutterCallkitIncoming.setCallConnected(callId);
     }
 
     if (!StreamUtil.socket.hasValue || !StreamUtil.socket.value.connected) {

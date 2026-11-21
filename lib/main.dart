@@ -120,21 +120,21 @@ void main() async {
       final callMap = Map<String, dynamic>.from(raw);
       final bool isAccepted = callMap['isAccepted'] == true || callMap['accepted'] == true;
       if (isAccepted) {
-        // Parse extra → data to get channelName, token, etc.
+        // Robustly parse extra → data to get channelName, token, etc.
         var extra = callMap['extra'];
         if (extra is String) {
           try { extra = json.decode(extra); } catch (_) {}
         }
-        if (extra is Map) {
-          var rawData = extra['data'];
-          if (rawData is String) {
-            try { rawData = json.decode(rawData); } catch (_) {}
+        var rawData = (extra is Map ? (extra['data'] ?? extra) : extra);
+        if (rawData is String) {
+          try { rawData = json.decode(rawData); } catch (_) {}
+        }
+        if (rawData is Map && (rawData['channelName'] != null || rawData['token'] != null)) {
+          killedStateCallData = Map<String, dynamic>.from(rawData);
+          if (killedStateCallData!['callId'] == null) {
+            killedStateCallData!['callId'] = callMap['id'];
           }
-          if (rawData is Map && rawData['channelName'] != null) {
-            killedStateCallData = Map<String, dynamic>.from(rawData);
-            isCallScreenActive = true;
-            logger.i('main(): Killed-state accepted call found — channelName: ${killedStateCallData!['channelName']}');
-          }
+          logger.i('main(): Killed-state accepted call found — channelName: ${killedStateCallData!['channelName']}');
         }
       }
     }
