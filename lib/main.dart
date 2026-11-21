@@ -387,10 +387,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver{
       }
       // iOS: if call navigation was deferred (navigator wasn't mounted when CallKit
       // accept fired), flush it now that the app is foregrounded.
-      if (_pendingCallData != null && !isCallScreenActive) {
-        final pending = Map<String, dynamic>.from(_pendingCallData!);
+      if (pendingCallNavigation != null && !isCallScreenActive) {
+        final pending = Map<String, dynamic>.from(pendingCallNavigation!);
         final screenName = pending.remove('_screenName') as String?;
-        _pendingCallData = null;
         pendingCallNavigation = null;
         if (screenName != null) {
           logger.i('didChangeAppLifecycleState.resumed: flushing pending navigation to $screenName');
