@@ -85,8 +85,12 @@ List<ConnectivityResult> connectionStatus = [ConnectivityResult.none];
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 bool isCallScreenActive = false;
 
+// Set in main() before runApp() when app is cold-started from a killed-state CallKit accept.
+// SplashScreen reads this to decide whether to push the call screen immediately.
+Map<String, dynamic>? killedStateCallData;
+
 // Stores call data when navigation fires before the Flutter navigator is mounted
-// (iOS background/killed cold start). The first screen that mounts flushes this.
+// (iOS background cold start). The first screen that mounts flushes this.
 Map<String, dynamic>? pendingCallNavigation;
 
 class MyHttpOverrides extends HttpOverrides {
@@ -102,6 +106,43 @@ void main() async {
   HttpOverrides.global = MyHttpOverrides();
   // Initialize SharedPreferences
   prefs = await SharedPreferences.getInstance();
+
+  // ─── KILLED-STATE CALLKIT CHECK (iOS) ────────────────────────────────────
+  // When the app is killed and the user accepts a CallKit call, iOS wakes the
+  // app. The onEvent stream listener isn't registered yet, so the accept event
+  // is missed. The documented fix (flutter_callkit_incoming, Stack Overflow,
+  // GitHub issues) is to call activeCalls() HERE — before runApp() — and store
+  // the accepted call data so SplashScreen can navigate immediately on first mount.
+  try {
+    final calls = await FlutterCallkitIncoming.activeCalls();
+    if (calls != null && calls is List && calls.isNotEmpty) {
+      final raw = calls.last;
+      final callMap = Map<String, dynamic>.from(raw);
+      final bool isAccepted = callMap['isAccepted'] == true || callMap['accepted'] == true;
+      if (isAccepted) {
+        // Parse extra → data to get channelName, token, etc.
+        var extra = callMap['extra'];
+        if (extra is String) {
+          try { extra = json.decode(extra); } catch (_) {}
+        }
+        if (extra is Map) {
+          var rawData = extra['data'];
+          if (rawData is String) {
+            try { rawData = json.decode(rawData); } catch (_) {}
+          }
+          if (rawData is Map && rawData['channelName'] != null) {
+            killedStateCallData = Map<String, dynamic>.from(rawData);
+            isCallScreenActive = true;
+            logger.i('main(): Killed-state accepted call found — channelName: ${killedStateCallData!['channelName']}');
+          }
+        }
+      }
+    }
+  } catch (e) {
+    logger.e('main(): activeCalls() error: $e');
+  }
+  // ──────────────────────────────────────────────────────────────────────────
+
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
@@ -590,9 +631,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver{
     }
   }
 
-  // Stores pending call data when navigation fails (app not fully mounted yet)
-  Map<String, dynamic>? _pendingCallData;
-
   Future<void> _handleCallAccept(String callId, Map<String, dynamic> data, String actionType) async {
     isCallScreenActive = true;
     if (Platform.isAndroid) {
@@ -615,9 +653,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver{
   }
 
   Future<void> navigateToCall(Map<String, dynamic> data) async {
-    // iOS background/killed: Flutter widget tree may not be mounted when CallKit
-    // accept fires. Retry navigation up to 20 times (2 seconds total) so the
-    // call screen opens automatically without the user having to tap the app icon.
+    // Documented correct pattern for iOS background/killed state navigation:
+    // https://stackoverflow.com/questions/flutter-callkit-incoming-background-navigate
+    // Use WidgetsBinding.instance.addPostFrameCallback to defer navigation until
+    // AFTER the first frame is fully rendered and the navigator is mounted.
+    // This handles background state reliably.
+    // Killed state is handled separately in main() via activeCalls() + killedStateCallData.
     final String? screenName = data['type'] == 'audioCall'
         ? AppScreens.audioCallScreen
         : data['type'] == 'videoCall'
@@ -636,26 +677,29 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver{
       'callerName': data['callerName'],
     };
 
-    // Attempt navigation immediately; if the navigator isn't ready yet (killed/background
-    // cold start), retry every 100ms for up to 3 seconds.
-    for (int i = 0; i < 30; i++) {
-      final nav = navigatorKey.currentState;
-      if (nav != null && nav.mounted) {
-        nav.pushNamed(screenName, arguments: args);
-        _pendingCallData = null; // navigation succeeded — clear pending
-        logger.i('navigateToCall: pushed $screenName on attempt ${i + 1}');
-        return;
-      }
-      logger.w('navigateToCall: navigator not ready (attempt ${i + 1}/30) — retrying...');
-      await Future.delayed(const Duration(milliseconds: 100));
+    // Try immediate push first (app already foregrounded, navigator ready)
+    final nav = navigatorKey.currentState;
+    if (nav != null && nav.mounted) {
+      nav.pushNamed(screenName, arguments: args);
+      logger.i('navigateToCall: immediate push to $screenName');
+      return;
     }
 
-    // Navigator still not available after 3s (very slow cold start).
-    // Store it in both instance + global so splash_screen can flush it on mount.
-    logger.e('navigateToCall: navigator never became ready — storing as pending call.');
-    _pendingCallData = args;
-    _pendingCallData!['_screenName'] = screenName;
-    pendingCallNavigation = Map<String, dynamic>.from(_pendingCallData!);
+    // Navigator not ready yet (iOS waking from background) — defer to next frame.
+    // addPostFrameCallback is the documented correct way to navigate after CallKit accept.
+    logger.w('navigateToCall: navigator not ready — deferring via addPostFrameCallback');
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final nav2 = navigatorKey.currentState;
+      if (nav2 != null && nav2.mounted) {
+        nav2.pushNamed(screenName, arguments: args);
+        logger.i('navigateToCall: deferred push to $screenName succeeded');
+      } else {
+        // Still not ready (edge case) — store as pending, flushed on lifecycle resume
+        logger.e('navigateToCall: navigator still not ready after postFrameCallback — storing pending.');
+        pendingCallNavigation = Map<String, dynamic>.from(args);
+        pendingCallNavigation!['_screenName'] = screenName;
+      }
+    });
   }
 
   // Future<void> handleCallEvent(CallEvent event) async {

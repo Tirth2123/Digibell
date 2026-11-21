@@ -41,6 +41,22 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
   }
 
   Future<void> initValue() async {
+    // ── KILLED-STATE: main() detected an accepted call before runApp() ──────
+    // This is the documented correct pattern. main() calls activeCalls() BEFORE
+    // runApp(), finds the accepted call, sets killedStateCallData. Here on the
+    // first widget mount we navigate directly to the call screen via
+    // addPostFrameCallback so the navigator is guaranteed to be ready.
+    if (killedStateCallData != null) {
+      logger.i('SplashScreen.initValue: killedStateCallData found — navigating to call screen.');
+      final data = killedStateCallData!;
+      killedStateCallData = null; // consume it
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        incomingRedirection(data);
+      });
+      await checkUserLoginAndRedirection();
+      return;
+    }
+    // ────────────────────────────────────────────────────────────────────────
     await checkNavigation();
     await checkUserLoginAndRedirection();
   }

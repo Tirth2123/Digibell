@@ -62,6 +62,14 @@ Future<void> showIncomingCallNotification(Map<String, dynamic> callData) async {
         iconName: 'AppIcon',
         ringtonePath: 'ringtone.caf', // Ensure ringtone file exists
         supportsVideo: data['type'] != 'audioCall',
+        // audioSessionActive: true ensures CallKit properly activates the
+        // AVAudioSession when the user accepts. Without this, Agora's audio
+        // is silent until the app is manually foregrounded.
+        // Source: flutter_callkit_incoming pub.dev docs + GitHub issues
+        audioSessionActive: true,
+        audioSessionMode: 'voiceChat',
+        audioSessionPreferredSampleRate: 44100.0,
+        audioSessionPreferredIOBufferDuration: 0.005,
       ),
     );
 

@@ -139,6 +139,9 @@ class _AudioCallScreenState extends State<AudioCallScreen> {
         // Explicitly enable audio & publish mic track (required on iOS + CallKit)
         if (Platform.isIOS) {
           await _engine?.setParameters('{"che.audio.keep.audiosession":true}');
+          // Handshake delay: Allow CallKit's native AVAudioSession activation
+          // to fully stabilize before Agora joins the channel.
+          await Future.delayed(const Duration(milliseconds: 400));
         }
         await _engine?.enableAudio();
         await _engine?.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
