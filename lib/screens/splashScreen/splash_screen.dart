@@ -180,35 +180,39 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
 
     await callAccepted(data);
     await actionClick('accept', data);
-    if (data['type'] == 'audioCall') {
-      await navigatorKey.currentState?.pushNamed(
-        AppScreens.audioCallScreen,
-        arguments: {
-          'members': data['members'],
-          'userCount': data['userCount'],
-          'callId': data['callId'],
-          'token': data['token'],
-          'receiverId': data['receiverId'],
-          'channelName': data['channelName'],
-          'callerId': data['callerId'],
-          'callerName': data['callerName'],
-        },
-      );
-    } else if (data['type'] == 'videoCall') {
-      await navigatorKey.currentState?.pushNamed(
-        AppScreens.videoCallScreen,
-        arguments: {
-          'members': data['members'],
-          'userCount': data['userCount'],
-          'callId': data['callId'],
-          'token': data['token'],
-          'receiverId': data['receiverId'],
-          'channelName': data['channelName'],
-          'callerId': data['callerId'],
-          'callerName': data['callerName'],
-        },
-      );
+
+    final String? screenName = data['type'] == 'audioCall'
+        ? AppScreens.audioCallScreen
+        : data['type'] == 'videoCall'
+            ? AppScreens.videoCallScreen
+            : null;
+    if (screenName == null) return;
+
+    final Map<String, dynamic> args = {
+      'members': data['members'],
+      'userCount': data['userCount'],
+      'callId': data['callId'],
+      'token': data['token'],
+      'receiverId': data['receiverId'],
+      'channelName': data['channelName'],
+      'callerId': data['callerId'],
+      'callerName': data['callerName'],
+    };
+
+    // iOS killed-state: Flutter navigator may not be mounted immediately after
+    // the app cold-starts from a CallKit accept. Retry for up to 3 seconds so
+    // the call screen opens automatically without the user having to tap anything.
+    for (int i = 0; i < 30; i++) {
+      final nav = navigatorKey.currentState;
+      if (nav != null && nav.mounted) {
+        nav.pushNamed(screenName, arguments: args);
+        logger.i('SplashScreen.incomingRedirection: pushed $screenName on attempt ${i + 1}');
+        return;
+      }
+      logger.w('SplashScreen.incomingRedirection: navigator not ready (attempt ${i + 1}/30) — retrying...');
+      await Future.delayed(const Duration(milliseconds: 100));
     }
+    logger.e('SplashScreen.incomingRedirection: navigator never became ready after 3s.');
     // await navigatorKey.currentState?.pushNamed(
     //   AppScreens.ringingScreen,
     //   arguments: {

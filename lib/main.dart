@@ -85,6 +85,10 @@ List<ConnectivityResult> connectionStatus = [ConnectivityResult.none];
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 bool isCallScreenActive = false;
 
+// Stores call data when navigation fires before the Flutter navigator is mounted
+// (iOS background/killed cold start). The first screen that mounts flushes this.
+Map<String, dynamic>? pendingCallNavigation;
+
 class MyHttpOverrides extends HttpOverrides {
   @override
   HttpClient createHttpClient(SecurityContext? context) {
@@ -340,6 +344,19 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver{
           !_askedOverlayThisSession) {
         _requestOverlayIfNeeded();
       }
+      // iOS: if call navigation was deferred (navigator wasn't mounted when CallKit
+      // accept fired), flush it now that the app is foregrounded.
+      if (_pendingCallData != null && !isCallScreenActive) {
+        final pending = Map<String, dynamic>.from(_pendingCallData!);
+        final screenName = pending.remove('_screenName') as String?;
+        _pendingCallData = null;
+        pendingCallNavigation = null;
+        if (screenName != null) {
+          logger.i('didChangeAppLifecycleState.resumed: flushing pending navigation to $screenName');
+          navigatorKey.currentState?.pushNamed(screenName, arguments: pending);
+          isCallScreenActive = true;
+        }
+      }
     } else if (state == AppLifecycleState.paused) {
       StreamUtil.isAppInBackground.add(true);
       print("didChangeAppLifecycleState App is in background ⏳ ${StreamUtil.isAppInBackground.value}");
@@ -573,6 +590,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver{
     }
   }
 
+  // Stores pending call data when navigation fails (app not fully mounted yet)
+  Map<String, dynamic>? _pendingCallData;
+
   Future<void> _handleCallAccept(String callId, Map<String, dynamic> data, String actionType) async {
     isCallScreenActive = true;
     if (Platform.isAndroid) {
@@ -595,35 +615,47 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver{
   }
 
   Future<void> navigateToCall(Map<String, dynamic> data) async {
-    if (data['type'] == 'audioCall') {
-      await navigatorKey.currentState?.pushNamed(
-        AppScreens.audioCallScreen,
-        arguments: {
-          'members': data['members'],
-          'callId': data['callId'],
-          'userCount': data['userCount'],
-          'token': data['token'],
-          'receiverId': data['receiverId'],
-          'channelName': data['channelName'],
-          'callerId': data['callerId'],
-          'callerName': data['callerName'],
-        },
-      );
-    } else if (data['type'] == 'videoCall') {
-      await navigatorKey.currentState?.pushNamed(
-        AppScreens.videoCallScreen,
-        arguments: {
-          'members': data['members'],
-          'userCount': data['userCount'],
-          'callId': data['callId'],
-          'token': data['token'],
-          'receiverId': data['receiverId'],
-          'channelName': data['channelName'],
-          'callerId': data['callerId'],
-          'callerName': data['callerName'],
-        },
-      );
+    // iOS background/killed: Flutter widget tree may not be mounted when CallKit
+    // accept fires. Retry navigation up to 20 times (2 seconds total) so the
+    // call screen opens automatically without the user having to tap the app icon.
+    final String? screenName = data['type'] == 'audioCall'
+        ? AppScreens.audioCallScreen
+        : data['type'] == 'videoCall'
+            ? AppScreens.videoCallScreen
+            : null;
+    if (screenName == null) return;
+
+    final Map<String, dynamic> args = {
+      'members': data['members'],
+      'callId': data['callId'],
+      'userCount': data['userCount'],
+      'token': data['token'],
+      'receiverId': data['receiverId'],
+      'channelName': data['channelName'],
+      'callerId': data['callerId'],
+      'callerName': data['callerName'],
+    };
+
+    // Attempt navigation immediately; if the navigator isn't ready yet (killed/background
+    // cold start), retry every 100ms for up to 3 seconds.
+    for (int i = 0; i < 30; i++) {
+      final nav = navigatorKey.currentState;
+      if (nav != null && nav.mounted) {
+        nav.pushNamed(screenName, arguments: args);
+        _pendingCallData = null; // navigation succeeded — clear pending
+        logger.i('navigateToCall: pushed $screenName on attempt ${i + 1}');
+        return;
+      }
+      logger.w('navigateToCall: navigator not ready (attempt ${i + 1}/30) — retrying...');
+      await Future.delayed(const Duration(milliseconds: 100));
     }
+
+    // Navigator still not available after 3s (very slow cold start).
+    // Store it in both instance + global so splash_screen can flush it on mount.
+    logger.e('navigateToCall: navigator never became ready — storing as pending call.');
+    _pendingCallData = args;
+    _pendingCallData!['_screenName'] = screenName;
+    pendingCallNavigation = Map<String, dynamic>.from(_pendingCallData!);
   }
 
   // Future<void> handleCallEvent(CallEvent event) async {
