@@ -62,7 +62,7 @@ class AppStyles {
   static TextStyle textFieldText_15_w500 =
       TextStyle(fontSize: 15.sp, fontWeight: FontWeight.w500, fontFamily: 'Montserrat', color: AppStyles.textFieldText);
 
-  static TextStyle red_16_w300 = TextStyle(fontSize: 14.sp, fontWeight: FontWeight.w300, fontFamily: 'Montserrat', color: Colors.red);
+  static TextStyle get red_16_w300 => TextStyle(fontSize: 14.sp, fontWeight: FontWeight.w300, fontFamily: 'Montserrat', color: Colors.red);
 
   static TextStyle black_24_w300 = TextStyle(fontSize: 24.sp, fontWeight: FontWeight.w500, fontFamily: 'Montserrat', color: AppStyles.black);
 

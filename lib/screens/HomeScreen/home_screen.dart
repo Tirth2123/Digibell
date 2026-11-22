@@ -142,8 +142,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                                       ),
                                       labelColor: AppStyles.white,
                                       unselectedLabelColor: AppStyles.primary,
-                                      labelStyle: AppStyles.red_16_w300.copyWith(color: AppStyles.white, fontWeight: FontWeight.w500),
-                                      unselectedLabelStyle: AppStyles.red_16_w300.copyWith(color: AppStyles.primary, fontWeight: FontWeight.w500),
+                                      labelStyle: TextStyle(fontSize: 14.sp, fontFamily: 'Montserrat', color: AppStyles.white, fontWeight: FontWeight.w500),
+                                      unselectedLabelStyle: TextStyle(fontSize: 14.sp, fontFamily: 'Montserrat', color: AppStyles.primary, fontWeight: FontWeight.w500),
                                       indicatorSize: TabBarIndicatorSize.tab,
                                       automaticIndicatorColorAdjustment: true,
                                       tabs: [
@@ -155,7 +155,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                                             ),
                                             child: Align(
                                               alignment: Alignment.center,
-                                              child: Text('All'),
+                                              child: Text('All', style: TextStyle(fontSize: 14.sp, fontFamily: 'Montserrat', fontWeight: FontWeight.w500)),
                                             ),
                                           ),
                                         ),
@@ -167,7 +167,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                                             ),
                                             child: Align(
                                               alignment: Alignment.center,
-                                              child: Text('Home'),
+                                              child: Text('Home', style: TextStyle(fontSize: 14.sp, fontFamily: 'Montserrat', fontWeight: FontWeight.w500)),
                                             ),
                                           ),
                                         ),
@@ -179,7 +179,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                                             ),
                                             child: Align(
                                               alignment: Alignment.center,
-                                              child: Text('Hotel'),
+                                              child: Text('Hotel', style: TextStyle(fontSize: 14.sp, fontFamily: 'Montserrat', fontWeight: FontWeight.w500)),
                                             ),
                                           ),
                                         ),
@@ -191,7 +191,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                                             ),
                                             child: Align(
                                               alignment: Alignment.center,
-                                              child: Text('Car'),
+                                              child: Text('Car', style: TextStyle(fontSize: 14.sp, fontFamily: 'Montserrat', fontWeight: FontWeight.w500)),
                                             ),
                                           ),
                                         ),
