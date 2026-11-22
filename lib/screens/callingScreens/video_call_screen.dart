@@ -65,7 +65,7 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
   Timer? _timer;
   BehaviorSubject<int> timing = BehaviorSubject<int>.seeded(0);
   bool _muted = false;
-  bool _speaker = false;
+  bool _speaker = true;
   bool _video = true;
   Offset position = Offset(0, 0);
 
@@ -187,6 +187,7 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
           onJoinChannelSuccess: (RtcConnection connection, int elapsed) {
             print("Joined channel: ${connection.channelId}");
             safeAdd(localUserJoined, true);
+            _engine?.setEnableSpeakerphone(true);
           },
           onUserJoined: (RtcConnection connection, int remoteUid, int elapsed) {
             print("User joined: $remoteUid");
@@ -230,6 +231,8 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
       await _engine?.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
       await _engine?.enableAudio();
       await _engine?.enableVideo();
+      await _engine?.setDefaultAudioRouteToSpeakerphone(true);
+      await _engine?.setEnableSpeakerphone(true);
       await _engine?.startPreview();
       await _engine?.joinChannel(
         token: widget.token,
@@ -244,6 +247,7 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
           autoSubscribeVideo: true,
         ),
       );
+      await _engine?.setEnableSpeakerphone(true);
     } catch (e) {
       print("Error during Agora Initialization: $e");
     }
@@ -260,9 +264,7 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
     setState(() {
       _speaker = !_speaker;
     });
-    if (_remoteUid != null) {
-      await _engine?.muteRemoteAudioStream(uid: _remoteUid!, mute: _speaker);
-    }
+    await _engine?.setEnableSpeakerphone(_speaker);
   }
 
   void toggleVideo() async {

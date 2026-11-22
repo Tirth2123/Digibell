@@ -183,7 +183,12 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
         : data['callId']?.toString();
 
     if (Platform.isAndroid) {
-      await FlutterCallkitIncoming.endAllCalls();
+      // Android killed state: CallKit accept was already handled in main() / CallKit listener.
+      // Do NOT call endAllCalls() here when app cold-started from an accepted call,
+      // as endAllCalls() fires actionCallEnded and cuts the active call!
+      if (!killedStateAndroidAccepted && acceptedCallKitId == null && !isCallScreenActive) {
+        await FlutterCallkitIncoming.endAllCalls();
+      }
     } else if (Platform.isIOS && callId != null && callId.isNotEmpty) {
       // Keep iOS CallKit AVAudioSession alive for Agora
       await FlutterCallkitIncoming.setCallConnected(callId);

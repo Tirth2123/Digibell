@@ -89,6 +89,15 @@ bool isCallScreenActive = false;
 // SplashScreen reads this to decide whether to push the call screen immediately.
 Map<String, dynamic>? killedStateCallData;
 
+// Global tracking of the accepted call ID and time (persists across cold starts).
+String? acceptedCallKitId;
+DateTime? acceptedCallAt;
+
+// True when the app cold-started from a killed-state CallKit accept (Android only).
+// Prevents splash_screen from calling endAllCalls() which would fire actionCallEnded
+// and cause the backend to cut the web caller with a spurious reject.
+bool killedStateAndroidAccepted = false;
+
 // Stores call data when navigation fires before the Flutter navigator is mounted
 // (iOS background cold start). The first screen that mounts flushes this.
 Map<String, dynamic>? pendingCallNavigation;
@@ -133,6 +142,13 @@ void main() async {
           killedStateCallData = Map<String, dynamic>.from(rawData);
           if (killedStateCallData!['callId'] == null) {
             killedStateCallData!['callId'] = callMap['id'];
+          }
+          acceptedCallKitId = callMap['id']?.toString();
+          acceptedCallAt = DateTime.now();
+          // Android killed-state: flag that the CallKit listener will handle
+          // endCall() so splash_screen must NOT call endAllCalls().
+          if (Platform.isAndroid) {
+            killedStateAndroidAccepted = true;
           }
           logger.i('main(): Killed-state accepted call found — channelName: ${killedStateCallData!['channelName']}');
         }
@@ -298,12 +314,14 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver{
             switch (event.event) {
               case Event.actionCallAccept:
                 logger.w("Event.actionCallAccept called for callId: $callId");
-                if (_acceptedCallId == callId && isCallScreenActive) {
+                if ((_acceptedCallId == callId || acceptedCallKitId == callId) && isCallScreenActive) {
                   logger.i("Call $callId already accepted & active; ignoring duplicate accept.");
                   break;
                 }
                 _acceptedCallId = callId;
                 _acceptedAt = DateTime.now();
+                acceptedCallKitId = callId;
+                acceptedCallAt = DateTime.now();
                 await _handleCallAccept(callId, decodedData, 'accept');
                 break;
               case Event.actionCallDecline:
@@ -312,9 +330,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver{
                 break;
               case Event.actionCallEnded:
                 logger.w("Event.actionCallEnded called for callId: $callId");
-                if (_acceptedCallId == callId) {
-                  final elapsedMs = _acceptedAt != null
-                      ? DateTime.now().difference(_acceptedAt!).inMilliseconds
+                final isAcceptedCall = (_acceptedCallId == callId) || (acceptedCallKitId == callId);
+                if (isAcceptedCall || isCallScreenActive) {
+                  final callTime = acceptedCallAt ?? _acceptedAt;
+                  final elapsedMs = callTime != null
+                      ? DateTime.now().difference(callTime).inMilliseconds
                       : 0;
                   // Android: endCall(callId) fires actionCallEnded immediately on accept (~100ms).
                   //   Ignore only within the first 1500ms window — after that, treat it as
@@ -339,6 +359,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver{
                   isCallScreenActive = false;
                   _acceptedCallId = null;
                   _acceptedAt = null;
+                  acceptedCallKitId = null;
+                  acceptedCallAt = null;
                   await _handleCallEnd(callId, decodedData, 'reject');
                   navigatorKey.currentState?.pushNamedAndRemoveUntil(
                     AppScreens.firstTimeHomeScreen,
@@ -347,12 +369,16 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver{
                   StreamUtil.bottomNavigationIndex.add(0);
                   break;
                 }
-                await _handleCallEnd(callId, decodedData, 'noResponse');
+                // Only emit noResponse if call screen is NOT active and call was NEVER accepted
+                if (!isCallScreenActive && !isAcceptedCall) {
+                  await _handleCallEnd(callId, decodedData, 'noResponse');
+                }
                 break;
               case Event.actionCallTimeout:
                 logger.w("Event.actionCallTimeout called");
-                if (_acceptedCallId == callId) {
-                  logger.i("Call $callId was accepted; ignoring actionCallTimeout.");
+                final isAcceptedTimeout = (_acceptedCallId == callId) || (acceptedCallKitId == callId);
+                if (isAcceptedTimeout || isCallScreenActive) {
+                  logger.i("Call $callId was accepted or call screen is active; ignoring actionCallTimeout.");
                   break;
                 }
                 await _handleCallEnd(callId, decodedData, 'noResponse');
