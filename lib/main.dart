@@ -316,16 +316,29 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver{
                   final elapsedMs = _acceptedAt != null
                       ? DateTime.now().difference(_acceptedAt!).inMilliseconds
                       : 0;
-                  // On Android, endCall(callId) is called immediately on accept.
-                  // On iOS, ignore any artifact within 3s of accept, OR if the call screen already closed.
-                  // If the user taps the native iOS CallKit red Hang Up button >3s into an active call,
-                  // end the call cleanly so the web caller disconnects too.
-                  if (Platform.isAndroid || !isCallScreenActive || elapsedMs < 3000) {
-                    logger.i("Call $callId was accepted; ignoring actionCallEnded to prevent dropping call.");
+                  // Android: endCall(callId) fires actionCallEnded immediately on accept (~100ms).
+                  //   Ignore only within the first 1500ms window — after that, treat it as
+                  //   a real end event (web cut, call dropped) and navigate home.
+                  // iOS: setCallConnected() artifacts can appear up to 3s after accept.
+                  //   Also ignore if call screen is already closed (avoid double-end).
+                  //   After 3s, treat iOS CallKit native hang-up as a real end event.
+                  final ignoreThresholdMs = Platform.isAndroid ? 1500 : 3000;
+                  if (!isCallScreenActive || elapsedMs < ignoreThresholdMs) {
+                    logger.i(
+                      "Ignoring actionCallEnded for $callId "
+                      "(elapsedMs: $elapsedMs, threshold: ${ignoreThresholdMs}ms, "
+                      "isCallScreenActive: $isCallScreenActive).",
+                    );
                     break;
                   }
-                  logger.w("iOS native CallKit hang-up during active call — ending call cleanly.");
+                  logger.w(
+                    Platform.isAndroid
+                        ? "Android call ended by remote/web after accept — ending call cleanly."
+                        : "iOS native CallKit hang-up during active call — ending call cleanly.",
+                  );
                   isCallScreenActive = false;
+                  _acceptedCallId = null;
+                  _acceptedAt = null;
                   await _handleCallEnd(callId, decodedData, 'reject');
                   navigatorKey.currentState?.pushNamedAndRemoveUntil(
                     AppScreens.firstTimeHomeScreen,
