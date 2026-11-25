@@ -24,6 +24,7 @@ class VideoCallScreen extends StatefulWidget {
   final String token;
   final String channelName;
   final String callerName;
+  final String? roomNumber;
   final String receiverId;
   final String callerId;
   final String callId;
@@ -31,7 +32,7 @@ class VideoCallScreen extends StatefulWidget {
   final List<dynamic> members;
 
   VideoCallScreen(
-      {super.key, required this.token,required this.userCount,required this.callId, required this.members, required this.callerId, required this.channelName, required this.receiverId, required this.callerName});
+      {super.key, required this.token,required this.userCount,required this.callId, required this.members, required this.callerId, required this.channelName, required this.receiverId, required this.callerName, this.roomNumber});
   static Widget create() {
     return MultiBlocProvider(
       providers: [
@@ -327,6 +328,27 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
                           });
                     },
                   ),
+                  if (widget.roomNumber != null && widget.roomNumber!.isNotEmpty)
+                    Positioned(
+                      top: 45.h,
+                      left: 16.w,
+                      child: Container(
+                        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.65),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppStyles.primary, width: 1.5),
+                        ),
+                        child: Text(
+                          'Room ${widget.roomNumber}',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 14.sp,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
                   Positioned(
                     left: position.dx,
                     top: position.dy,

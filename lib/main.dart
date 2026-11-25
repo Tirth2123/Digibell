@@ -713,6 +713,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver{
       'channelName': data['channelName'],
       'callerId': data['callerId'],
       'callerName': data['callerName'],
+      'roomNumber': data['roomNumber'],
     };
 
     // Try immediate push first (app already foregrounded, navigator ready)

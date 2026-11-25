@@ -222,6 +222,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
       'channelName': data['channelName'],
       'callerId': data['callerId'],
       'callerName': data['callerName'],
+      'roomNumber': data['roomNumber'],
     };
 
     // iOS killed-state: Flutter navigator may not be mounted immediately after

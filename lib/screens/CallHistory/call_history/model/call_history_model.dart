@@ -38,6 +38,7 @@ class CallData {
   String? receiver;
   String? type;
   String? callerName;
+  String? roomNumber;
   String? callAction;
   String? channel;
   bool? active;
@@ -53,6 +54,7 @@ class CallData {
       this.receiver,
       this.type,
       this.callerName,
+      this.roomNumber,
       this.callAction,
       this.channel,
       this.active,
@@ -68,6 +70,7 @@ class CallData {
     receiver = json['receiver'];
     type = json['type'];
     callerName = json['callerName'];
+    roomNumber = json['roomNumber'];
     callAction = json['callAction'];
     channel = json['channel'];
     active = json['active'];
@@ -95,6 +98,7 @@ class CallData {
     data['receiver'] = this.receiver;
     data['type'] = this.type;
     data['callerName'] = this.callerName;
+    data['roomNumber'] = this.roomNumber;
     data['callAction'] = this.callAction;
     data['channel'] = this.channel;
     data['active'] = this.active;

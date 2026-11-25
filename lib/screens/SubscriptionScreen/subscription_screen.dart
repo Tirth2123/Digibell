@@ -132,39 +132,45 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with TickerProv
 
   //IN APP PURCHASE
   Future<void> initPlatformState() async {
-    // prepare
-    var result = await FlutterInappPurchase.instance.initialize();
-    print('result: $result');
-    // If the widget was removed from the tree while the asynchronous platform
-    // message was in flight, we want to discard the reply rather than calling
-    // setState to update our non-existent appearance.
-    if (!mounted) return;
-
-    // refresh items for android
     try {
-      String msg = await FlutterInappPurchase.instance.consumeAll();
-      print('consumeAllItems: $msg');
-    } catch (err) {
-      print('consumeAllItems error: $err');
+      // prepare
+      var result = await FlutterInappPurchase.instance.initialize();
+      print('result: $result');
+      // If the widget was removed from the tree while the asynchronous platform
+      // message was in flight, we want to discard the reply rather than calling
+      // setState to update our non-existent appearance.
+      if (!mounted) return;
+
+      // refresh items for android
+      try {
+        String msg = await FlutterInappPurchase.instance.consumeAll();
+        print('consumeAllItems: $msg');
+      } catch (err) {
+        print('consumeAllItems error: $err');
+      }
+
+      _connectionSubscription = FlutterInappPurchase.connectionUpdated.listen((connected) {
+        print('connected: $connected');
+      });
+
+      _purchaseUpdatedSubscription = FlutterInappPurchase.purchaseUpdated.listen((productItem) async {
+        print('purchase-updated: ${productItem?.transactionId}');
+        inAppPurchase(
+          purchaseToken: productItem?.purchaseToken ?? '',
+        );
+        print("IN APP PURCHASE paymentparams STATUS : ${productItem?.purchaseStateAndroid?.name} ${productItem?.transactionStateIOS?.name}");
+      });
+
+      _purchaseErrorSubscription = FlutterInappPurchase.purchaseError.listen((purchaseError) {
+        print('purchase-error: $purchaseError');
+        if (purchaseError?.message != null) {
+          AlertUtils.showToast("Payment Failed - ${purchaseError!.message!}");
+        }
+      });
+      await _getProduct();
+    } catch (e) {
+      print('initPlatformState error: $e');
     }
-
-    _connectionSubscription = FlutterInappPurchase.connectionUpdated.listen((connected) {
-      print('connected: $connected');
-    });
-
-    _purchaseUpdatedSubscription = FlutterInappPurchase.purchaseUpdated.listen((productItem) async {
-      print('purchase-updated: ${productItem?.transactionId}');
-      inAppPurchase(
-        purchaseToken: productItem?.purchaseToken ?? '',
-      );
-      print("IN APP PURCHASE paymentparams STATUS : ${productItem?.purchaseStateAndroid?.name} ${productItem?.transactionStateIOS?.name}");
-    });
-
-    _purchaseErrorSubscription = FlutterInappPurchase.purchaseError.listen((purchaseError) {
-      print('purchase-error: $purchaseError');
-      AlertUtils.showToast("Payment Failed - ${purchaseError!.message!}");
-    });
-    await _getProduct();
   }
 
   Future<void> _getProduct() async {

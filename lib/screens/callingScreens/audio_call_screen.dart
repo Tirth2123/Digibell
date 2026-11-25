@@ -21,6 +21,7 @@ import '../../utils/capitalize_first_letter.dart';
 
 class AudioCallScreen extends StatefulWidget {
   final String callerName;
+  final String? roomNumber;
   final String callId;
   final String receiverId;
   final String callerId;
@@ -29,7 +30,7 @@ class AudioCallScreen extends StatefulWidget {
   final int userCount;
   final List<dynamic> members;
   AudioCallScreen(
-      {super.key, required this.members,required this.userCount, required this.callId,required this.receiverId, required this.callerId, required this.callerName, required this.channelName, required this.token});
+      {super.key, required this.members,required this.userCount, required this.callId,required this.receiverId, required this.callerId, required this.callerName, this.roomNumber, required this.channelName, required this.token});
 
   static Widget create() {
     return MultiBlocProvider(
@@ -260,6 +261,19 @@ class _AudioCallScreenState extends State<AudioCallScreen> {
                                 style: TextStyle(color: Colors.black, fontSize: 30.h, fontWeight: FontWeight.w500),
                               ),
                             ),
+                            if (widget.roomNumber != null && widget.roomNumber!.isNotEmpty)
+                              Container(
+                                margin: EdgeInsets.only(top: 6.h, bottom: 2.h),
+                                padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 4.h),
+                                decoration: BoxDecoration(
+                                  color: AppStyles.primary,
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: Text(
+                                  'Room ${widget.roomNumber}',
+                                  style: TextStyle(color: Colors.white, fontSize: 15.sp, fontWeight: FontWeight.bold),
+                                ),
+                              ),
                             SizedBox(
                               height: 5.h,
                             ),

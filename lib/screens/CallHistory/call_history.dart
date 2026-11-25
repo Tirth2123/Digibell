@@ -173,11 +173,37 @@ class _CallHistoryScreenState extends State<CallHistoryScreen> {
                                                         style: AppStyles.black_17_w600.copyWith(fontWeight: FontWeight.w500, fontSize: 18.sp),
                                                       ),
                                                     ),
-                                                    title: Text(
-                                                      state.callHistoryModel?.data?[index].callerName == ''
-                                                          ? 'Unknown'
-                                                          : state.callHistoryModel?.data?[index].callerName ?? '',
-                                                      style: AppStyles.black_17_w600.copyWith(color: AppStyles.blue, fontSize: 16.sp),
+                                                    title: Row(
+                                                      children: [
+                                                        Expanded(
+                                                          child: Text(
+                                                            state.callHistoryModel?.data?[index].callerName == ''
+                                                                ? 'Unknown'
+                                                                : state.callHistoryModel?.data?[index].callerName ?? '',
+                                                            maxLines: 1,
+                                                            overflow: TextOverflow.ellipsis,
+                                                            style: AppStyles.black_17_w600.copyWith(color: AppStyles.blue, fontSize: 16.sp),
+                                                          ),
+                                                        ),
+                                                        if (state.callHistoryModel?.data?[index].roomNumber != null &&
+                                                            state.callHistoryModel!.data![index].roomNumber!.isNotEmpty)
+                                                          Container(
+                                                            margin: EdgeInsets.only(left: 6.w),
+                                                            padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 2.h),
+                                                            decoration: BoxDecoration(
+                                                              color: AppStyles.primary,
+                                                              borderRadius: BorderRadius.circular(10),
+                                                            ),
+                                                            child: Text(
+                                                              'Room ${state.callHistoryModel!.data![index].roomNumber}',
+                                                              style: TextStyle(
+                                                                color: Colors.white,
+                                                                fontSize: 11.sp,
+                                                                fontWeight: FontWeight.bold,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                      ],
                                                     ),
                                                     subtitle: Row(
                                                       children: [

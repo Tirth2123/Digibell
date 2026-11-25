@@ -37,11 +37,23 @@ Future<void> showIncomingCallNotification(Map<String, dynamic> callData) async {
     final callKitId = _uuidPattern.hasMatch(rawId) ? rawId : const Uuid().v4();
 
     // Prepare call kit parameters
+    String callerDisplayName = 'Visitor at Door';
+    if (data['roomNumber'] != null && data['roomNumber'].toString().trim().isNotEmpty) {
+      final roomStr = 'Room ${data['roomNumber']}';
+      final hotelStr = (data['hotelName'] != null && data['hotelName'].toString().trim().isNotEmpty)
+          ? ' (${data['hotelName']})'
+          : '';
+      callerDisplayName = '$roomStr$hotelStr';
+    } else if (data['callerName'] != null && data['callerName'].toString().isNotEmpty) {
+      callerDisplayName = data['callerName'];
+    }
+
     final callKitParams = CallKitParams(
       id: callKitId,
-      nameCaller: (data['callerName'] != null && data['callerName'].toString().isNotEmpty)
-          ? data['callerName']
-          : 'Visitor at Door',
+      nameCaller: callerDisplayName,
+      handle: (data['roomNumber'] != null && data['roomNumber'].toString().trim().isNotEmpty)
+          ? 'Room ${data['roomNumber']}'
+          : 'Digibell Call',
       appName: 'Digibell',
       type: data['type'] == 'audioCall' ? 0 : 1, // 0: audio, 1: video
       duration: 30000, // 30 seconds
